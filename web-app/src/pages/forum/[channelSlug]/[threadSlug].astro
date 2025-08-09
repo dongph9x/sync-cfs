@@ -130,11 +130,11 @@ const qaSchema = generateStructuredData({
     <div
         class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
         data-pagefind-body
-        data-pagefind-meta="title:{thread.title}"
-        data-pagefind-meta="author:{thread.author_alias}"
-        data-pagefind-meta="channel:{channel.name}"
+        data-pagefind-meta={`title:${thread.title}`}
+        data-pagefind-meta={`author:${thread.author_alias}`}
+        data-pagefind-meta={`channel:${channel.name}`}
         data-pagefind-meta="type:thread"
-        data-pagefind-meta="date:{thread.created_at.toISOString()}"
+        data-pagefind-meta={`date:${thread.created_at.toISOString()}`}
     >
         <!-- Breadcrumb -->
         <nav class="flex mb-8" aria-label="Breadcrumb">
@@ -206,9 +206,7 @@ const qaSchema = generateStructuredData({
                                 d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
                                 clip-rule="evenodd"></path>
                         </svg>
-                        <span
-                            class="ml-1 text-sm font-medium text-stack-gray-500 md:ml-2"
-                            >{thread.title}</span
+        
                         >
                     </div>
                 </li>
@@ -223,7 +221,6 @@ const qaSchema = generateStructuredData({
                         class="text-3xl font-bold text-stack-gray-900 mb-4"
                         data-pagefind-meta="title"
                     >
-                        {thread.title}
                     </h1>
 
                     <!-- Tags -->

@@ -163,9 +163,9 @@ const seo = {
                 channels.map((channel) => (
                     <article
                         class="card hover:shadow-md transition-shadow"
-                        data-pagefind-meta="title:{channel.name}"
+                        data-pagefind-meta={`title:${channel.name}`}
                         data-pagefind-meta="type:channel"
-                        data-pagefind-meta="threads:{channel.thread_count || 0}"
+                        data-pagefind-meta={`threads:${channel.thread_count || 0}`}
                     >
                         <div class="card-body">
                             <div class="flex items-center justify-between">
