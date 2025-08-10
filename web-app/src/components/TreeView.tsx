@@ -171,9 +171,10 @@ export default function TreeView({
     setTreeItems(items);
   }, [items]);
 
-  // Filter and sort items
+  // Filter and sort items in one useMemo to ensure proper updates
   const filteredAndSortedItems = useMemo(() => {
-    let filtered = treeItems.filter(item => {
+    // Filter items first
+    const filtered = treeItems.filter(item => {
       if (item.type !== 'thread' || !item.thread) return false;
       
       const thread = item.thread;
@@ -188,7 +189,8 @@ export default function TreeView({
     });
 
     // Sort items
-    filtered.sort((a, b) => {
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
       if (!a.thread || !b.thread) return 0;
       
       let aValue: any, bValue: any;
@@ -208,8 +210,11 @@ export default function TreeView({
           break;
         case 'rank':
         default:
-          aValue = a.thread.rank || 0;
-          bValue = b.thread.rank || 0;
+          // For rank sorting, use the current order in treeItems
+          const aIndex = treeItems.findIndex(item => item.id === a.id);
+          const bIndex = treeItems.findIndex(item => item.id === b.id);
+          aValue = aIndex;
+          bValue = bIndex;
           break;
       }
       
@@ -220,7 +225,7 @@ export default function TreeView({
       }
     });
 
-    return filtered;
+    return sorted;
   }, [treeItems, searchTerm, sortBy, sortOrder]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -267,6 +272,7 @@ export default function TreeView({
   };
 
   console.log('TreeView rendered with items:', treeItems);
+  console.log('Filtered and sorted items:', filteredAndSortedItems);
 
   if (!isClient) {
     return (
