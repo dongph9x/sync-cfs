@@ -103,7 +103,7 @@ function SortableItem({ item, index, onThreadClick }: SortableItemProps) {
         {/* Vote/Stats Column */}
         <div className="flex flex-col items-center space-y-1 min-w-[60px]">
           <div className="text-sm text-gray-500">
-            {thread.reply_count} trả lời
+            {thread.reply_count} bình luận
           </div>
         </div>
 
@@ -134,23 +134,21 @@ function SortableItem({ item, index, onThreadClick }: SortableItemProps) {
           )}
 
           {/* Author and Date */}
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
             <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs font-medium">
-                  {thread.author_alias.substring(0, 2).toUpperCase()}
-                </div>
-                <span className="text-gray-700">
-                  {thread.author_alias}
-                </span>
+              <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs font-medium">
+                {thread.author_alias.substring(0, 2).toUpperCase()}
               </div>
+              <span className="text-gray-700 text-sm">
+                {thread.author_alias}
+              </span>
             </div>
-            <div className="flex items-center space-x-4">
-              <time dateTime={thread.created_at.toISOString()}>
+            <div className="flex flex-col space-y-1">
+              <time dateTime={thread.created_at.toISOString()} className="text-xs text-gray-600">
                 {new Date(thread.created_at).toLocaleDateString('vi-VN')}
               </time>
               {thread.updated_at && thread.updated_at !== thread.created_at && (
-                <time dateTime={thread.updated_at.toISOString()}>
+                <time dateTime={thread.updated_at.toISOString()} className="text-xs text-gray-500">
                   Cập nhật: {new Date(thread.updated_at).toLocaleDateString('vi-VN')}
                 </time>
               )}
@@ -364,7 +362,7 @@ export default function TreeView({
               <option value="rank">Thứ tự hiển thị</option>
               <option value="title">Tiêu đề</option>
               <option value="created_at">Ngày tạo</option>
-              <option value="reply_count">Số trả lời</option>
+              <option value="reply_count">Số bình luận</option>
             </select>
           </div>
           

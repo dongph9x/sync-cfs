@@ -63,7 +63,7 @@ export default function SimpleTreeView({ items }: TreeViewProps) {
               {/* Vote/Stats Column */}
               <div className="flex flex-col items-center space-y-1 min-w-[60px]">
                 <div className="text-sm text-gray-500">
-                  {thread.reply_count} trả lời
+                  {thread.reply_count} bình luận
                 </div>
               </div>
 

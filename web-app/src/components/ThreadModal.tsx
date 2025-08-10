@@ -64,7 +64,7 @@ const ThreadModal: React.FC<ThreadModalProps> = ({ thread, isOpen, onClose }) =>
       ></div>
       
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex-1">
@@ -79,7 +79,7 @@ const ThreadModal: React.FC<ThreadModalProps> = ({ thread, isOpen, onClose }) =>
             <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
               <span>👤 {thread.author_alias}</span>
               <span>📅 {formatDate(thread.created_at)}</span>
-              <span>💬 {thread.reply_count} trả lời</span>
+              <span>💬 {thread.reply_count} bình luận</span>
               <span>🏆 Rank: {thread.thread_rank}</span>
             </div>
           </div>
@@ -95,7 +95,7 @@ const ThreadModal: React.FC<ThreadModalProps> = ({ thread, isOpen, onClose }) =>
 
         {/* Content */}
         <div 
-          className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]"
+          className="p-6 overflow-y-auto max-h-[calc(80vh-200px)]"
           style={{
             scrollbarWidth: 'thin',
             scrollbarColor: '#d1d5db #f3f4f6',
@@ -126,7 +126,7 @@ const ThreadModal: React.FC<ThreadModalProps> = ({ thread, isOpen, onClose }) =>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between p-2 border-t border-gray-200 bg-gray-50">
           <div className="text-sm text-gray-600">
             Thread ID: {thread.id}
           </div>

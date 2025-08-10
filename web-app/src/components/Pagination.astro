@@ -115,7 +115,7 @@ class PaginationController {
                         ${post.reply_to_id ? `
                             <div class="mb-3 p-3 bg-stack-gray-50 border-l-4 border-stack-blue rounded">
                                 <div class="text-xs text-stack-gray-600 mb-1">
-                                    <span class="font-medium">Trả lời cho:</span> ${post.reply_to_author_alias || 'Không xác định'}
+                                    <span class="font-medium">Bình luận cho:</span> ${post.reply_to_author_alias || 'Không xác định'}
                                 </div>
                             </div>
                         ` : ''}
@@ -134,7 +134,7 @@ class PaginationController {
         
         this.resultsInfo.innerHTML = `
             Hiển thị <span class="font-medium">${startItem}</span> đến <span class="font-medium">${endItem}</span> trong tổng số 
-            <span class="font-medium">${this.posts.length}</span> trả lời
+            <span class="font-medium">${this.posts.length}</span> bình luận
         `;
     }
     
