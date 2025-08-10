@@ -21,14 +21,14 @@ const shouldDisplayBanner =
 
 const websiteSchema = generateStructuredData({
     type: "WebSite",
-    name: "Discord Forum",
+    name: "Ani Nhi Confessions",
     url: Astro.site?.toString(),
     description: seo.description,
 });
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="vi">
     <head>
         <meta charset="UTF-8" />
         <meta name="description" content={seo.description} />
@@ -89,7 +89,7 @@ const websiteSchema = generateStructuredData({
                             href="/"
                             class="text-xl font-bold text-stack-gray-900"
                         >
-                            Discord Forum
+                            Ani Nhi Confessions
                         </a>
                     </div>
 
@@ -98,7 +98,7 @@ const websiteSchema = generateStructuredData({
                             href="/forum/"
                             class="text-stack-gray-700 hover:text-stack-gray-900 transition-colors"
                         >
-                            Forum
+                            Diễn Đàn
                         </a>
                         <a
                             href="/search/"
@@ -117,7 +117,7 @@ const websiteSchema = generateStructuredData({
                                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                                 ></path>
                             </svg>
-                            Search
+                            Tìm Kiếm
                         </a>
                         <a
                             href={bannerConfig.discordInviteUrl}
@@ -125,7 +125,7 @@ const websiteSchema = generateStructuredData({
                             rel="noopener noreferrer"
                             class="btn-primary"
                         >
-                            Join Discord
+                            Tham Gia Discord
                         </a>
                     </nav>
                 </div>
@@ -143,22 +143,21 @@ const websiteSchema = generateStructuredData({
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div>
                         <h3 class="text-lg font-semibold mb-4">
-                            Discord Forum
+                            Ani Nhi Confessions
                         </h3>
                         <p class="text-stack-gray-600">
-                            Community discussions archived from our Discord
-                            server.
+                            Thảo luận cộng đồng được lưu trữ từ máy chủ Discord của chúng tôi.
                         </p>
                     </div>
 
                     <div>
-                        <h4 class="font-semibold mb-4">Quick Links</h4>
+                        <h4 class="font-semibold mb-4">Liên Kết Nhanh</h4>
                         <ul class="space-y-2 text-stack-gray-600">
                             <li>
                                 <a
                                     href="/forum/"
                                     class="hover:text-stack-gray-900"
-                                    >Forum Home</a
+                                    >Trang Chủ Diễn Đàn</a
                                 >
                             </li>
                             <li>
@@ -167,38 +166,22 @@ const websiteSchema = generateStructuredData({
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     class="hover:text-stack-gray-900"
-                                    >Join Discord</a
+                                    >Tham Gia Discord</a
                                 >
                             </li>
                         </ul>
                     </div>
 
                     <div>
-                        <h4 class="font-semibold mb-4">Community</h4>
+                        <h4 class="font-semibold mb-4">Cộng Đồng</h4>
                         <p class="text-stack-gray-600 text-sm">
-                            This forum is a static archive of discussions from
-                            our Discord server. Join the live community for
-                            real-time conversations!
+                            Diễn đàn này là kho lưu trữ tĩnh các thảo luận từ máy chủ Discord của chúng tôi. Tham gia cộng đồng trực tuyến để có những cuộc trò chuyện thời gian thực!
                         </p>
                     </div>
-                </div>
-
-                <div
-                    class="mt-8 pt-8 border-t border-stack-gray-200 text-center text-stack-gray-600"
-                >
-                    <p>
-                        &copy; {new Date().getFullYear()} Discord Forum. Built with
-                        Astro.
-                    </p>
                 </div>
             </div>
         </footer>
 
-        <!-- Banner dismiss script -->
-        {
-            shouldDisplayBanner && (
-                <script is:inline set:html={generateBannerScript()} />
-            )
-        }
+        <script is:inline set:html={generateBannerScript()}></script>
     </body>
 </html>

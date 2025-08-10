@@ -18,7 +18,7 @@ export function getBannerConfig(): BannerConfig {
     return {
         everyNPages: everyN,
         discordInviteUrl: inviteUrl,
-        message: 'Join our Discord – click here!'
+        message: 'Tham gia Discord của chúng tôi – nhấp vào đây!'
     };
 }
 

@@ -22,10 +22,10 @@ try {
 }
 
 const seo = {
-    title: "Forum Channels - Discord Community",
+    title: "Kênh Diễn Đàn - Cộng Đồng Discord",
     description:
-        "Browse all forum channels in our Discord community. Find discussions on various topics and join the conversation.",
-    keywords: ["forum", "channels", "discord", "community", "discussions"],
+        "Duyệt qua tất cả các kênh diễn đàn trong cộng đồng Discord của chúng tôi. Tìm thảo luận về nhiều chủ đề khác nhau và tham gia cuộc trò chuyện.",
+    keywords: ["diễn đàn", "kênh", "discord", "cộng đồng", "thảo luận"],
     canonical: `${Astro.site}forum/`,
 };
 ---
@@ -49,7 +49,7 @@ const seo = {
                                 d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"
                             ></path>
                         </svg>
-                        Home
+                        Trang Chủ
                     </a>
                 </li>
                 <li>
@@ -66,7 +66,7 @@ const seo = {
                         </svg>
                         <span
                             class="ml-1 text-sm font-medium text-stack-gray-500 md:ml-2"
-                            >Forum</span
+                            >Diễn Đàn</span
                         >
                     </div>
                 </li>
@@ -76,11 +76,10 @@ const seo = {
         <!-- Header -->
         <div class="mb-8 text-center">
             <h1 class="text-3xl font-bold text-stack-gray-900 mb-4">
-                Forum Channels
+                Kênh Diễn Đàn
             </h1>
             <p class="text-lg text-stack-gray-600 mb-6">
-                Browse discussions organized by topic. Each channel contains
-                threads and conversations from our Discord community.
+                Duyệt qua các thảo luận được tổ chức theo chủ đề. Mỗi kênh chứa các chủ đề và cuộc trò chuyện từ cộng đồng Discord của chúng tôi.
             </p>
 
             <!-- Quick Search Link -->
@@ -102,7 +101,7 @@ const seo = {
                             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                         ></path>
                     </svg>
-                    Search forum threads and posts...
+                    Tìm kiếm chủ đề và bài viết diễn đàn...
                 </a>
             </div>
         </div>
@@ -114,7 +113,7 @@ const seo = {
                     <div class="stats-number text-2xl text-stack-blue">
                         {channels.length}
                     </div>
-                    <div class="stats-label">Channels</div>
+                    <div class="stats-label">Kênh</div>
                 </div>
             </div>
             <div class="card">
@@ -128,7 +127,7 @@ const seo = {
                             )
                         }
                     </div>
-                    <div class="stats-label">Total Threads</div>
+                    <div class="stats-label">Tổng Chủ Đề</div>
                 </div>
             </div>
             <div class="card">
@@ -144,15 +143,15 @@ const seo = {
                             ) || 0
                         }
                     </div>
-                    <div class="stats-label">Avg per Channel</div>
+                    <div class="stats-label">Trung Bình/Kênh</div>
                 </div>
             </div>
             <div class="card">
                 <div class="card-body text-center">
                     <div class="stats-number text-2xl text-stack-blue">
-                        Live
+                        Trực Tuyến
                     </div>
-                    <div class="stats-label">Community</div>
+                    <div class="stats-label">Cộng Đồng</div>
                 </div>
             </div>
         </div>
@@ -203,7 +202,7 @@ const seo = {
                                                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                                                 />
                                             </svg>
-                                            {channel.thread_count || 0} threads
+                                            {channel.thread_count || 0} chủ đề
                                         </span>
 
                                         <time
@@ -223,8 +222,8 @@ const seo = {
                                                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                                                 />
                                             </svg>
-                                            Created{" "}
-                                            {new Intl.DateTimeFormat("en-US", {
+                                            Tạo{" "}
+                                            {new Intl.DateTimeFormat("vi-VN", {
                                                 year: "numeric",
                                                 month: "long",
                                                 day: "numeric",
@@ -238,7 +237,7 @@ const seo = {
                                         href={`/forum/${channel.slug}/`}
                                         class="btn-primary"
                                     >
-                                        Browse Threads
+                                        Duyệt Chủ Đề
                                     </a>
                                 </div>
                             </div>
@@ -265,10 +264,10 @@ const seo = {
                         />
                     </svg>
                     <h3 class="text-lg font-medium text-stack-gray-900 mb-2">
-                        No channels found
+                        Không tìm thấy kênh nào
                     </h3>
                     <p class="text-stack-gray-600">
-                        Check back later for community discussions.
+                        Hãy quay lại sau để xem các thảo luận cộng đồng.
                     </p>
                 </div>
             )
