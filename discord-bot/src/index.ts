@@ -38,7 +38,7 @@ async function updateRanksAfterSync(): Promise<void> {
       host: process.env.MYSQL_HOST || "localhost",
       port: parseInt(process.env.MYSQL_PORT || "3306"),
       user: process.env.MYSQL_USER || "root",
-      password: '', // Empty password like web-app
+      password: process.env.MYSQL_PASSWORD || "",
       database: process.env.MYSQL_DATABASE || "forum",
       waitForConnections: true,
       connectionLimit: 10,

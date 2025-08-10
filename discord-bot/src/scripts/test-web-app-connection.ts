@@ -9,7 +9,7 @@ async function testWebAppConnection() {
       host: process.env.MYSQL_HOST || "localhost",
       port: parseInt(process.env.MYSQL_PORT || "3306"),
       user: process.env.MYSQL_USER || "root",
-      password: process.env.MYSQL_PASSWORD || "password",
+      password: process.env.MYSQL_PASSWORD || "",
       database: process.env.MYSQL_DATABASE || "forum",
     };
 
@@ -17,7 +17,7 @@ async function testWebAppConnection() {
       host: dbConfig.host,
       port: dbConfig.port || 3306,
       user: dbConfig.user,
-      password: '', // Empty password like web-app
+      password: dbConfig.password,
       database: dbConfig.database,
       waitForConnections: true,
       connectionLimit: 10,

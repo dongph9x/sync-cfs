@@ -244,7 +244,7 @@ export default function TreeView({
             threadId: item.id,
             rank: index + 1,
           }));
-          
+
           fetch('/api/update-ranks', {
             method: 'POST',
             headers: {
