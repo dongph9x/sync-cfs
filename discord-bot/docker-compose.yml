@@ -11,57 +11,26 @@ services:
       - NODE_ENV=production
       - STAFF_CSV_PATH=/app/staff.csv
       - PORT=${PORT}
+      - MYSQL_DATABASE=forum
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - RUN_MODE=watch
+      - EXIT_AFTER_SYNC=false
+      - REGISTER_COMMANDS=false
+      - ENABLE_HISTORICAL_SYNC=${ENABLE_HISTORICAL_SYNC}
+      - FORCE_FULL_SYNC=${FORCE_FULL_SYNC}
+      - SYNC_GUILD_ID=${SYNC_GUILD_ID}
+      - SYNC_CHANNEL_ID=${SYNC_CHANNEL_ID}
+      - SYNC_LIMIT=1
+      - SYNC_SKIP_EXISTING=true
     env_file:
       - .env
-    depends_on:
-      mysql:
-        condition: service_healthy
     volumes:
       - ./logs:/app/logs
       - ./staff.csv:/app/staff.csv:ro
-    networks:
-      - forum-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/healthz"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3008/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  mysql:
-    image: mysql:8.0
-    container_name: forum-mysql
-    restart: unless-stopped
-    ports:
-      - "3306:3306"
-    environment:
-      MYSQL_DATABASE: forum
-      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      RUN_MODE: watch
-      EXIT_AFTER_SYNC: false
-      REGISTER_COMMANDS: false
-      ENABLE_HISTORICAL_SYNC: ${ENABLE_HISTORICAL_SYNC}
-      FORCE_FULL_SYNC: ${FORCE_FULL_SYNC}
-      SYNC_GUILD_ID: ${SYNC_GUILD_ID}
-      SYNC_CHANNEL_ID: ${SYNC_CHANNEL_ID}
-      SYNC_LIMIT: 1
-      SYNC_SKIP_EXISTING: true
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-    networks:
-      - forum-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$MYSQL_ROOT_PASSWORD"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    command: --default-authentication-plugin=mysql_native_password
-
-volumes:
-  mysql_data:
-
-networks:
-  forum-network:
-    driver: bridge
