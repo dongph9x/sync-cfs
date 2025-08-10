@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -152,6 +152,9 @@ export default function TreeView({
 }: TreeViewProps) {
   const [treeItems, setTreeItems] = useState<TreeItem[]>(items);
   const [isClient, setIsClient] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'rank' | 'title' | 'created_at' | 'reply_count'>('rank');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -167,6 +170,58 @@ export default function TreeView({
   useEffect(() => {
     setTreeItems(items);
   }, [items]);
+
+  // Filter and sort items
+  const filteredAndSortedItems = useMemo(() => {
+    let filtered = treeItems.filter(item => {
+      if (item.type !== 'thread' || !item.thread) return false;
+      
+      const thread = item.thread;
+      const searchLower = searchTerm.toLowerCase();
+      
+      return (
+        thread.title.toLowerCase().includes(searchLower) ||
+        thread.author_alias.toLowerCase().includes(searchLower) ||
+        (thread.body_html && thread.body_html.replace(/<[^>]*>/g, '').toLowerCase().includes(searchLower)) ||
+        (thread.tags && thread.tags.some(tag => tag.toLowerCase().includes(searchLower)))
+      );
+    });
+
+    // Sort items
+    filtered.sort((a, b) => {
+      if (!a.thread || !b.thread) return 0;
+      
+      let aValue: any, bValue: any;
+      
+      switch (sortBy) {
+        case 'title':
+          aValue = a.thread.title;
+          bValue = b.thread.title;
+          break;
+        case 'created_at':
+          aValue = new Date(a.thread.created_at).getTime();
+          bValue = new Date(b.thread.created_at).getTime();
+          break;
+        case 'reply_count':
+          aValue = a.thread.reply_count;
+          bValue = b.thread.reply_count;
+          break;
+        case 'rank':
+        default:
+          aValue = a.thread.rank || 0;
+          bValue = b.thread.rank || 0;
+          break;
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    return filtered;
+  }, [treeItems, searchTerm, sortBy, sortOrder]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -235,25 +290,93 @@ export default function TreeView({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Search and Filter Controls */}
+      <div className="mb-6 space-y-4">
+        {/* Search Box */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Tìm kiếm theo tiêu đề, tác giả, nội dung..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Sort Controls */}
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">Sắp xếp theo:</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="rank">Thứ tự hiển thị</option>
+              <option value="title">Tiêu đề</option>
+              <option value="created_at">Ngày tạo</option>
+              <option value="reply_count">Số trả lời</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">Thứ tự:</label>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="asc">Tăng dần</option>
+              <option value="desc">Giảm dần</option>
+            </select>
+          </div>
+
+          {/* Clear Search */}
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md"
+            >
+              Xóa tìm kiếm
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Results Info */}
       <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg">
         <p className="text-sm">
-          ✅ TreeView: Hiển thị {treeItems.length} threads
+          ✅ Hiển thị {filteredAndSortedItems.length} / {treeItems.length} threads
+          {searchTerm && ` (tìm kiếm: "${searchTerm}")`}
         </p>
         <p className="text-xs mt-1">
           Kéo và thả để sắp xếp lại thứ tự hiển thị
         </p>
       </div>
 
+      {/* No Results */}
+      {filteredAndSortedItems.length === 0 && searchTerm && (
+        <div className="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded-lg">
+          <p className="text-sm">🔍 Không tìm thấy kết quả nào cho "{searchTerm}"</p>
+        </div>
+      )}
+
+      {/* TreeView Content */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={treeItems.map(item => item.id)}
+          items={filteredAndSortedItems.map(item => item.id)}
           strategy={verticalListSortingStrategy}
         >
-          {treeItems.map((item, index) => (
+          {filteredAndSortedItems.map((item, index) => (
             <SortableItem key={item.id} item={item} index={index} />
           ))}
         </SortableContext>
