@@ -1,14 +1,143 @@
 import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createLogger } from './lib/logger';
-import { initializeDatabase } from './lib/db';
+import { initializeDatabase, query } from './lib/db';
 import { initializeMetrics } from './lib/metrics';
 import { loadStaffFromCSV } from './lib/staffLoader';
 import { messageHandler } from './handlers/message';
 import { threadHandler } from './handlers/thread';
 import { CommandHandler } from './lib/commandHandler';
 import { smartSync } from './lib/smartSync';
+import { getPool } from './lib/db';
+import mysql from 'mysql2/promise';
+
 const logger = createLogger('main');
+
+interface Channel {
+  id: string;
+  discord_id: string;
+  slug: string;
+  name: string;
+}
+
+async function getAllChannels(): Promise<Channel[]> {
+  const result = await query<Channel>(`
+    SELECT id, id as discord_id, slug, name 
+    FROM channels 
+    ORDER BY position ASC
+  `);
+  return result;
+}
+
+async function updateRanksAfterSync(): Promise<void> {
+  try {
+    logger.info('🔄 Updating ranks after sync...');
+    
+    // Create a separate pool with web-app configuration
+    const webAppPool = mysql.createPool({
+      host: process.env.MYSQL_HOST || "localhost",
+      port: parseInt(process.env.MYSQL_PORT || "3306"),
+      user: process.env.MYSQL_USER || "root",
+      password: '', // Empty password like web-app
+      database: process.env.MYSQL_DATABASE || "forum",
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      supportBigNumbers: true,
+      bigNumberStrings: true
+    } as mysql.PoolOptions);
+    
+    // Get all channels - using exact same logic as web-app
+    const [channelsResult] = await webAppPool.execute(`
+      SELECT 
+        c.*,
+        COUNT(t.id) as thread_count
+      FROM channels c
+      LEFT JOIN threads t ON c.id = t.channel_id
+      GROUP BY c.id
+      ORDER BY c.position ASC, c.name ASC
+    `);
+    
+    const channels = (channelsResult as any[]).map(row => ({
+      ...row,
+      id: String(row.id),
+      thread_count: parseInt(row.thread_count) || 0
+    }));
+    
+    logger.info(`Found ${channels.length} channels`);
+    
+    for (const channel of channels) {
+      logger.info(`📝 Processing channel: ${channel.name} (${channel.slug})`);
+      
+      // Get all threads in this channel, ordered by created_at DESC (newest first)
+      const [threads] = await webAppPool.execute(`
+        SELECT id, title, rank, created_at 
+        FROM threads 
+        WHERE channel_id = ? 
+        ORDER BY created_at DESC
+      `, [channel.id]);
+      
+      const channelThreads = threads as any[];
+      logger.info(`Found ${channelThreads.length} threads in channel`);
+      
+      if (channelThreads.length === 0) {
+        logger.info('No threads to process');
+        continue;
+      }
+      
+      // Update ranks based on index (newest thread gets rank 1, oldest gets highest rank)
+      logger.info('🔄 Updating ranks based on created_at order (newest first):');
+      for (let i = 0; i < channelThreads.length; i++) {
+        const thread = channelThreads[i];
+        const newRank = i + 1; // 1, 2, 3, ...
+        
+        await webAppPool.execute(`
+          UPDATE threads 
+          SET rank = ?, updated_at = NOW()
+          WHERE id = ?
+        `, [newRank, thread.id]);
+        
+        logger.info(`  ${i + 1}. "${thread.title}" - Rank: ${thread.rank} → ${newRank} (Created: ${thread.created_at})`);
+      }
+      
+      logger.info(`✅ Updated ranks for ${channelThreads.length} threads in channel ${channel.name}`);
+    }
+    
+    logger.info('🎉 All ranks updated successfully!');
+    
+    // Verify the results
+    logger.info('🔍 Verifying results...');
+    const [verificationResult] = await webAppPool.execute(`
+      SELECT 
+        COUNT(*) as total_threads,
+        COUNT(CASE WHEN rank = 0 OR rank IS NULL THEN 1 END) as threads_without_rank,
+        COUNT(CASE WHEN rank > 0 THEN 1 END) as threads_with_rank,
+        MIN(rank) as min_rank,
+        MAX(rank) as max_rank
+      FROM threads
+    `);
+    
+    const stats = (verificationResult as any[])[0];
+    logger.info('📊 Final statistics:');
+    logger.info(`  - Total threads: ${stats.total_threads}`);
+    logger.info(`  - Threads with rank: ${stats.threads_with_rank}`);
+    logger.info(`  - Threads without rank: ${stats.threads_without_rank}`);
+    logger.info(`  - Rank range: ${stats.min_rank} - ${stats.max_rank}`);
+    
+    if (stats.threads_without_rank === 0) {
+      logger.info('✅ All threads now have proper rank values!');
+    } else {
+      logger.warn(`⚠️ Still ${stats.threads_without_rank} threads without rank`);
+    }
+    
+    // Close the web-app pool
+    await webAppPool.end();
+    
+  } catch (error) {
+    logger.error('❌ Error updating ranks after sync:', error);
+    throw error;
+  }
+}
 
 async function main() {
     try {
@@ -72,6 +201,7 @@ async function main() {
                     logger.info({ forceFull }, 'Starting smart sync');
 
                     await smartSync(client, { forceFull });
+                    await updateRanksAfterSync(); // Call the new function here
 
                     logger.info('Smart sync completed successfully');
 

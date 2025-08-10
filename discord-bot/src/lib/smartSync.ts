@@ -194,117 +194,123 @@ async function syncGuildDelta(guild: Guild, stats: SyncStats, lastSyncDate: Date
 }
 
 async function syncChannelThreadsFull(channel: ForumChannel, stats: SyncStats): Promise<void> {
-    try {
-        // Fetch active threads
-        const activeThreads = await channel.threads.fetchActive();
+    logger.debug({ channelId: channel.id, channelName: channel.name }, 'Starting full sync for channel');
 
-        // Fetch archived threads
-        const archivedThreads = await channel.threads.fetchArchived();
+    // Fetch all threads in the channel
+    const threads = await channel.threads.fetchActive();
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 100 });
+    
+    // Combine active and archived threads
+    const allThreads = [...threads.threads.values(), ...archivedThreads.threads.values()];
+    
+    logger.info({ 
+        channelId: channel.id, 
+        channelName: channel.name,
+        activeThreads: threads.threads.size,
+        archivedThreads: archivedThreads.threads.size,
+        totalThreads: allThreads.length
+    }, 'Fetched all threads for channel');
 
-        // Combine all threads
-        const allThreads = new Collection<string, ThreadChannel>();
-        activeThreads.threads.forEach((thread, id) => allThreads.set(id, thread));
-        archivedThreads.threads.forEach((thread, id) => allThreads.set(id, thread));
+    // Sort threads by creation time to maintain consistent order
+    const sortedThreads = allThreads.sort((a, b) => 
+        (a.createdTimestamp || 0) - (b.createdTimestamp || 0)
+    );
 
-        logger.info({
-            channelId: channel.id,
-            activeThreads: activeThreads.threads.size,
-            archivedThreads: archivedThreads.threads.size,
-            totalThreads: allThreads.size
-        }, 'Processing all threads for full sync');
-
-        for (const [threadId, thread] of allThreads) {
-            try {
-                await syncThreadFull(thread, stats);
-                stats.threadsProcessed++;
-            } catch (error) {
-                stats.errorsEncountered++;
-                logger.error({ error, threadId, threadName: thread.name }, 'Error during full sync of thread');
-            }
+    // Process each thread with rank based on index
+    for (let i = 0; i < sortedThreads.length; i++) {
+        const thread = sortedThreads[i];
+        if (!thread) continue; // Skip undefined threads
+        
+        const rank = i + 1; // 1, 2, 3, ...
+        
+        try {
+            await syncThreadFull(thread, stats, rank);
+        } catch (error) {
+            stats.errorsEncountered++;
+            logger.error({ error, threadId: thread.id, threadName: thread.name }, 'Error processing thread');
         }
-    } catch (error) {
-        stats.errorsEncountered++;
-        logger.error({ error, channelId: channel.id }, 'Failed to fetch threads for full sync');
     }
 }
 
 async function syncChannelThreadsDelta(channel: ForumChannel, stats: SyncStats, lastSyncDate: Date): Promise<void> {
-    try {
-        // Fetch active threads
-        const activeThreads = await channel.threads.fetchActive();
+    logger.debug({ channelId: channel.id, channelName: channel.name }, 'Starting delta sync for channel');
 
-        // Fetch archived threads
-        const archivedThreads = await channel.threads.fetchArchived();
+    // Fetch all threads in the channel
+    const threads = await channel.threads.fetchActive();
+    const archivedThreads = await channel.threads.fetchArchived({ limit: 100 });
+    
+    // Combine active and archived threads
+    const allThreads = [...threads.threads.values(), ...archivedThreads.threads.values()];
+    
+    logger.info({
+        channelId: channel.id,
+        channelName: channel.name,
+        activeThreads: threads.threads.size,
+        archivedThreads: archivedThreads.threads.size,
+        totalThreads: allThreads.length,
+        lastSyncDate: lastSyncDate.toISOString()
+    }, 'Processing threads for delta sync');
 
-        // Combine all threads
-        const allThreads = new Collection<string, ThreadChannel>();
-        activeThreads.threads.forEach((thread, id) => allThreads.set(id, thread));
-        archivedThreads.threads.forEach((thread, id) => allThreads.set(id, thread));
+    // Sort threads by creation time to maintain consistent order
+    const sortedThreads = allThreads.sort((a, b) => 
+        (a.createdTimestamp || 0) - (b.createdTimestamp || 0)
+    );
 
-        logger.info({
-            channelId: channel.id,
-            totalThreads: allThreads.size,
-            lastSyncDate: lastSyncDate.toISOString()
-        }, 'Processing threads for delta sync');
-
-        for (const [threadId, thread] of allThreads) {
-            try {
-                await syncThreadDelta(thread, stats, lastSyncDate);
-                stats.threadsProcessed++;
-            } catch (error) {
-                stats.errorsEncountered++;
-                logger.error({ error, threadId, threadName: thread.name }, 'Error during delta sync of thread');
-            }
+    // Process each thread with rank based on index
+    for (let i = 0; i < sortedThreads.length; i++) {
+        const thread = sortedThreads[i];
+        if (!thread) continue; // Skip undefined threads
+        
+        const rank = i + 1; // 1, 2, 3, ...
+        
+        try {
+            await syncThreadDelta(thread, stats, lastSyncDate, rank);
+        } catch (error) {
+            stats.errorsEncountered++;
+            logger.error({ error, threadId: thread.id, threadName: thread.name }, 'Error during delta sync of thread');
         }
-    } catch (error) {
-        stats.errorsEncountered++;
-        logger.error({ error, channelId: channel.id }, 'Failed to fetch threads for delta sync');
     }
 }
 
-async function syncThreadFull(thread: ThreadChannel, stats: SyncStats): Promise<void> {
-    // Ensure thread exists in database
-    await upsertThread(thread);
+async function syncThreadFull(thread: ThreadChannel, stats: SyncStats, rank: number): Promise<void> {
+    // Ensure thread exists in database with rank
+    await upsertThread(thread, rank);
+    
+    logger.debug({ threadId: thread.id, threadName: thread.name, rank }, 'Processing thread with rank');
 
-    // Fetch all messages
+    // Fetch all messages in the thread
     const messages = await fetchAllMessages(thread);
-
-    logger.debug({ threadId: thread.id, messageCount: messages.size }, 'Processing all messages for full sync');
-
-    // Get starter message to exclude it from posts
-    let starterMessageId: string | null = null;
-    try {
-        const starterMessage = await thread.fetchStarterMessage();
-        if (starterMessage) {
-            starterMessageId = starterMessage.id;
-        }
-    } catch (error) {
-        logger.warn({ error, threadId: thread.id }, 'Failed to fetch starter message for exclusion');
-    }
+    
+    logger.info({
+        threadId: thread.id,
+        threadName: thread.name,
+        messageCount: messages.size,
+        rank
+    }, 'Processing all messages for full sync');
 
     // Process messages in chronological order
-    const sortedMessages = messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    const sortedMessages = Array.from(messages.values())
+        .filter(msg => !msg.author.bot)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
-    for (const [messageId, message] of sortedMessages) {
-        if (message.author.bot || message.id === starterMessageId) {
-            continue; // Skip bot messages and starter message
-        }
-
+    for (const message of sortedMessages) {
         try {
             await upsertPost(message, stats);
         } catch (error) {
             stats.errorsEncountered++;
-            logger.error({ error, messageId, threadId: thread.id }, 'Error processing message in full sync');
+            logger.error({ error, messageId: message.id, threadId: thread.id }, 'Error processing message');
         }
     }
 
-    // Update reply count
+    // Update thread reply count
     await updateThreadReplyCount(thread.id);
+    
+    stats.threadsProcessed++;
 }
 
-async function syncThreadDelta(thread: ThreadChannel, stats: SyncStats, lastSyncDate: Date): Promise<void> {
-    // Ensure thread exists in database
-    await upsertThread(thread);
+async function syncThreadDelta(thread: ThreadChannel, stats: SyncStats, lastSyncDate: Date, rank: number): Promise<void> {
+    // Ensure thread exists in database with rank
+    await upsertThread(thread, rank);
 
     try {
         // Get starter message to exclude it from posts
@@ -319,15 +325,14 @@ async function syncThreadDelta(thread: ThreadChannel, stats: SyncStats, lastSync
         }
 
         // Fetch messages after lastSyncDate
-        const messages = await thread.messages.fetch({
-            after: lastSyncDate.getTime().toString()
-        });
-
+        const messages = await thread.messages.fetch({ after: lastSyncDate.getTime().toString() });
+        
         logger.debug({
             threadId: thread.id,
+            threadName: thread.name,
             messageCount: messages.size,
-            lastSyncDate: lastSyncDate.toISOString()
-        }, 'Processing new messages for delta sync');
+            rank
+        }, 'Processing messages for delta sync');
 
         // Process messages in chronological order
         const sortedMessages = messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
@@ -347,10 +352,11 @@ async function syncThreadDelta(thread: ThreadChannel, stats: SyncStats, lastSync
 
         // Update reply count
         await updateThreadReplyCount(thread.id);
-
+        
+        stats.threadsProcessed++;
     } catch (error) {
-        logger.error({ error, threadId: thread.id }, 'Failed to fetch messages for delta sync');
-        throw error;
+        stats.errorsEncountered++;
+        logger.error({ error, threadId: thread.id }, 'Error during delta sync of thread');
     }
 }
 
@@ -425,7 +431,7 @@ async function upsertChannel(channel: ForumChannel): Promise<void> {
     ]);
 }
 
-async function upsertThread(thread: ThreadChannel): Promise<void> {
+async function upsertThread(thread: ThreadChannel, rank: number): Promise<void> {
     // Generate thread slug
     const slug = thread.name
         .toLowerCase()
@@ -503,7 +509,8 @@ async function upsertThread(thread: ThreadChannel): Promise<void> {
         threadId: thread.id,
         threadName: thread.name,
         bodyHtmlLength: bodyHtml.length,
-        hasBodyContent: bodyHtml.length > 0
+        hasBodyContent: bodyHtml.length > 0,
+        rank
     }, 'Thread body content prepared');
 
     // Process tags
@@ -511,13 +518,14 @@ async function upsertThread(thread: ThreadChannel): Promise<void> {
 
     await query(`
         INSERT INTO threads (
-            id, channel_id, slug, title, author_alias, body_html, tags, reply_count, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id, channel_id, slug, title, author_alias, body_html, tags, reply_count, rank, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             slug = VALUES(slug),
             title = VALUES(title),
             body_html = VALUES(body_html),
             tags = VALUES(tags),
+            rank = VALUES(rank),
             updated_at = VALUES(updated_at)
     `, [
         thread.id,
@@ -528,6 +536,7 @@ async function upsertThread(thread: ThreadChannel): Promise<void> {
         bodyHtml,
         JSON.stringify(tags),
         0, // Will be updated when we process posts
+        rank, // Use the provided rank
         new Date(thread.createdTimestamp!),
         new Date()
     ]);

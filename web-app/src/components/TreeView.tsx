@@ -18,7 +18,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Thread } from '../lib/db';
+import { Thread, updateThreadRanks } from '../lib/db';
 
 export interface TreeItem {
   id: string;
@@ -34,6 +34,7 @@ interface SortableItemProps {
   onToggle: (id: string) => void;
 }
 
+// Helper functions for formatting and extracting data (copied from ThreadCard.astro logic)
 function formatDate(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   return new Intl.DateTimeFormat('vi-VN', {
@@ -46,20 +47,25 @@ function formatDate(date: Date | string): string {
 }
 
 function getAuthorInitials(authorAlias: string): string {
-  return authorAlias.substring(0, 2).toUpperCase();
+  return authorAlias
+    .split(' ')
+    .map(name => name.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 }
 
 function isStaffMember(authorAlias: string): boolean {
-  return (
-    authorAlias.includes("MOD") ||
-    authorAlias.includes("ADMIN") ||
-    authorAlias.includes("STAFF")
+  const staffMembers = ['admin', 'moderator', 'staff'];
+  return staffMembers.some(staff => 
+    authorAlias.toLowerCase().includes(staff.toLowerCase())
   );
 }
 
 function extractTextFromHtml(html: string | null): string {
-  if (!html) return "";
-  return html.replace(/<[^>]*>/g, "").substring(0, 150) + "...";
+  if (!html) return '';
+  // Simple HTML tag removal
+  return html.replace(/<[^>]*>/g, '').trim();
 }
 
 function SortableItem({ item, onToggle }: SortableItemProps) {
@@ -199,10 +205,12 @@ function SortableItem({ item, onToggle }: SortableItemProps) {
 interface TreeViewProps {
   items: TreeItem[];
   onItemsReorder?: (items: TreeItem[]) => void;
+  channelSlug?: string; // Add channel slug for database updates
 }
 
-export default function TreeView({ items, onItemsReorder }: TreeViewProps) {
+export default function TreeView({ items, onItemsReorder, channelSlug }: TreeViewProps) {
   const [treeItems, setTreeItems] = useState<TreeItem[]>(items);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -211,7 +219,7 @@ export default function TreeView({ items, onItemsReorder }: TreeViewProps) {
     })
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
     if (active.id !== over?.id) {
@@ -220,11 +228,39 @@ export default function TreeView({ items, onItemsReorder }: TreeViewProps) {
         const newIndex = items.findIndex((item) => item.id === over?.id);
 
         const newItems = arrayMove(items, oldIndex, newIndex);
-        onItemsReorder?.(newItems);
+        onItemsReorder?.(newItems); // Callback for parent component
+        
+        // Update ranks in database
+        if (channelSlug) {
+          setIsUpdating(true);
+          updateRanksInDatabase(newItems).finally(() => {
+            setIsUpdating(false);
+          });
+        }
+        
         return newItems;
       });
     }
-  };
+  }
+
+  async function updateRanksInDatabase(items: TreeItem[]) {
+    try {
+      const rankUpdates = items
+        .filter(item => item.type === 'thread' && item.thread)
+        .map((item, index) => ({
+          threadId: item.id,
+          rank: index * 10 // Use increments of 10 for flexibility
+        }));
+
+      if (rankUpdates.length > 0) {
+        await updateThreadRanks(rankUpdates);
+        console.log('Thread ranks updated successfully');
+      }
+    } catch (error) {
+      console.error('Failed to update thread ranks:', error);
+      // Optionally show user feedback about the error
+    }
+  }
 
   const handleToggle = (id: string) => {
     setTreeItems((items) =>

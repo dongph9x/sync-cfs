@@ -228,7 +228,7 @@ const breadcrumbSchema = generateStructuredData({
         <!-- Threads TreeView -->
         <div class="space-y-4">
             {threads.length > 0 ? (
-                <TreeView client:load items={treeItems} />
+                <TreeView client:load items={treeItems} channelSlug={channelSlug} />
             ) : (
                 <div class="text-center py-12">
                     <svg

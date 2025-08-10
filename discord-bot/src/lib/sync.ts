@@ -125,53 +125,49 @@ async function syncSpecificChannel(
     stats: SyncStats,
     options: SyncOptions
 ): Promise<void> {
-    const channel = client.channels.cache.get(channelId) as ForumChannel;
-    if (!channel || channel.type !== 15) {
-        throw new Error(`Forum channel ${channelId} not found`);
+    const channel = await client.channels.fetch(channelId) as ForumChannel;
+    if (!channel) {
+        throw new Error(`Channel ${channelId} not found`);
     }
 
-    logger.info({ channelId, channelName: channel.name }, 'Processing forum channel');
+    logger.info({
+        channelId: channel.id,
+        channelName: channel.name,
+        limit: options.limit
+    }, 'Starting channel sync');
 
-    // Upsert channel first
-    await query(`
-    INSERT INTO channels (id, slug, name, description, position, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-      name = VALUES(name),
-      description = VALUES(description),
-      position = VALUES(position)
-  `, [
-        channel.id,
-        channel.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        channel.name,
-        channel.topic || null,
-        channel.position || 0,
-        new Date(),
-    ]);
+    // Fetch all threads in the channel
+    const threads = await channel.threads.fetchActive();
+    const archivedThreads = await channel.threads.fetchArchived({ limit: options.limit || 100 });
+    
+    // Combine active and archived threads
+    const allThreads = [...threads.threads.values(), ...archivedThreads.threads.values()];
+    
+    logger.info({
+        channelId: channel.id,
+        channelName: channel.name,
+        activeThreads: threads.threads.size,
+        archivedThreads: archivedThreads.threads.size,
+        totalThreads: allThreads.length
+    }, 'Fetched all threads for channel');
 
-    stats.channelsProcessed++;
+    // Sort threads by creation time to maintain consistent order
+    const sortedThreads = allThreads.sort((a, b) => 
+        (a.createdTimestamp || 0) - (b.createdTimestamp || 0)
+    );
 
-    // Get all threads (archived and active)
-    const threads = await channel.threads.fetchArchived({ type: 'public' });
-    const activeThreads = await channel.threads.fetchActive();
-
-    const allThreads = new Collection([
-        ...threads.threads.entries(),
-        ...activeThreads.threads.entries(),
-    ]);
-
-    logger.info(`Found ${allThreads.size} threads in channel ${channel.name}`);
-
-    for (const [threadId, thread] of allThreads) {
+    // Process each thread with rank based on index
+    for (let i = 0; i < sortedThreads.length; i++) {
+        const thread = sortedThreads[i];
+        if (!thread) continue; // Skip undefined threads
+        
+        const rank = i + 1; // 1, 2, 3, ...
+        
         try {
-            if (options.limit && stats.threadsProcessed >= options.limit) {
-                logger.info('Reached thread limit, stopping');
-                break;
-            }
-            await syncSpecificThread(client, threadId, stats, options);
+            await syncThread(thread, stats, rank);
         } catch (error) {
             stats.errorsEncountered++;
-            logger.error({ error, threadId, threadName: thread.name }, 'Error processing thread');
+            logger.error({ error, threadId: thread.id, threadName: thread.name }, 'Error processing thread');
         }
     }
 }
@@ -187,7 +183,7 @@ async function syncSpecificThread(
         throw new Error(`Thread ${threadId} not found`);
     }
 
-    logger.debug({ threadId, threadName: thread.name }, 'Processing thread');
+    logger.debug({ threadId, threadName: thread.name }, 'Processing specific thread');
 
     // Check if thread already exists and skip if requested
     if (options.skipExisting) {
@@ -198,20 +194,55 @@ async function syncSpecificThread(
         }
     }
 
+    // Get the maximum rank in the channel for this thread
+    let rank = 0;
+    try {
+        const [maxRankResult] = await query(`
+            SELECT COALESCE(MAX(rank), 0) as max_rank 
+            FROM threads 
+            WHERE channel_id = ? AND rank IS NOT NULL
+        `, [thread.parentId!]);
+        
+        const maxRank = (maxRankResult as any[])[0]?.max_rank || 0;
+        rank = maxRank + 1; // Simple increment by 1
+        
+        logger.debug({
+            threadId: thread.id,
+            channelId: thread.parentId,
+            maxRank,
+            rank
+        }, 'Calculated rank for specific thread');
+    } catch (error) {
+        logger.warn({ error, threadId: thread.id }, 'Failed to calculate rank, using 0');
+        rank = 0;
+    }
+
+    // Use the new syncThread function
+    await syncThread(thread, stats, rank);
+}
+
+async function syncThread(thread: ThreadChannel, stats: SyncStats, rank: number): Promise<void> {
+    const threadId = thread.id;
+    
+    logger.debug({ threadId, threadName: thread.name, rank }, 'Processing thread with rank');
+
     // Get starter message
     const starterMessage = await thread.fetchStarterMessage();
-    if (!starterMessage || starterMessage.author.bot) {
-        logger.debug({ threadId }, 'No starter message or bot message, skipping');
+    if (!starterMessage) {
+        logger.warn({ threadId }, 'No starter message found for thread');
         return;
     }
 
-    const authorAlias = hashUserId(starterMessage.author.id);
+    // Generate author alias
+    const authorId = hashUserId(starterMessage.author.id);
+    const staffTag = await getStaffTag(starterMessage.author.id);
+    const authorAlias = staffTag ? `${authorId.slice(0, 8)}:${staffTag}` : authorId;
 
-    // Process starter message content
+    // Process content
     const sanitizationResult = sanitizeContent(starterMessage.content || '');
     let htmlContent = convertToHtml(sanitizationResult.sanitizedContent);
 
-    // Process images from attachments
+    // Process images
     const imageUrls = starterMessage.attachments.map(att => att.url);
     if (imageUrls.length > 0) {
         try {
@@ -227,16 +258,14 @@ async function syncSpecificThread(
         }
     }
 
-    // Extract tags from thread
-    const tags = thread.appliedTags || [];
-    const tagNames = tags.length > 0 ?
-        tags.map((tagId: string) => {
-            if ('availableTags' in thread.parent! && thread.parent.availableTags) {
-                const tag = thread.parent.availableTags.find((t: any) => t.id === tagId);
-                return tag?.name || tagId;
-            }
-            return tagId;
-        }).filter(Boolean) : null;
+    // Extract tags
+    const tagNames = thread.appliedTags?.map(tagId => {
+        if ('availableTags' in thread.parent! && thread.parent.availableTags) {
+            const tag = thread.parent.availableTags.find((t: any) => t.id === tagId);
+            return tag?.name || tagId;
+        }
+        return tagId;
+    }).filter(Boolean) || null;
 
     // Create thread slug
     const slug = thread.name.toLowerCase()
@@ -246,17 +275,18 @@ async function syncSpecificThread(
         .replace(/^-|-$/g, '')
         .substring(0, 255);
 
-    // Upsert thread
+    // Upsert thread with rank
     await query(`
     INSERT INTO threads (
       id, channel_id, slug, title, author_alias, body_html, 
-      tags, reply_count, created_at, updated_at
+      tags, reply_count, rank, created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       title = VALUES(title),
       body_html = VALUES(body_html),
       tags = VALUES(tags),
+      rank = VALUES(rank),
       updated_at = VALUES(updated_at)
   `, [
         thread.id,
@@ -267,6 +297,7 @@ async function syncSpecificThread(
         htmlContent,
         tagNames ? JSON.stringify(tagNames) : null,
         0, // Will be updated when we process posts
+        rank, // Use the provided rank
         starterMessage.createdAt,
         new Date(),
     ]);
@@ -317,7 +348,8 @@ async function syncSpecificThread(
         threadId,
         threadName: thread.name,
         postCount,
-        authorAlias
+        authorAlias,
+        rank
     }, 'Thread processed');
 }
 

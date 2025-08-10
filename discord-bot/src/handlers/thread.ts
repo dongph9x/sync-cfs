@@ -10,20 +10,20 @@ import { createLogger } from '../lib/logger';
 const logger = createLogger('threadHandler');
 
 export async function threadHandler(thread: ThreadChannel): Promise<void> {
+    logger.info({
+        threadId: thread.id,
+        threadName: thread.name,
+        channelId: thread.parentId,
+        channelName: thread.parent?.name
+    }, 'Thread handler called');
+
     try {
-        logger.debug({ threadId: thread.id, threadName: thread.name }, 'Handling thread event');
-
-        // Skip if not in a forum channel
-        if (!thread.parent || thread.parent.type !== 15) { // 15 = GUILD_FORUM
-            return;
-        }
-
-        await handleThreadUpsert(thread);
-        recordDiscordEvent('thread', 'success');
-
+        await measureDbQuery('thread_handler_total', async () => {
+            await handleThreadUpsert(thread);
+        });
     } catch (error) {
-        logger.error({ error, threadId: thread.id }, 'Error handling thread event');
-        recordDiscordEvent('thread', 'error');
+        logger.error({ error, threadId: thread.id }, 'Error in thread handler');
+        throw error;
     }
 }
 
@@ -36,6 +36,29 @@ async function handleThreadUpsert(thread: ThreadChannel): Promise<void> {
 
     const authorAlias = hashUserId(starterMessage.author.id);
     const staffTag = await getStaffTag(starterMessage.author.id);
+
+    // Get the maximum rank in the channel for this thread
+    let rank = 0;
+    try {
+        const [maxRankResult] = await query(`
+            SELECT COALESCE(MAX(rank), 0) as max_rank 
+            FROM threads 
+            WHERE channel_id = ? AND rank IS NOT NULL
+        `, [thread.parentId!]);
+        
+        const maxRank = (maxRankResult as any[])[0]?.max_rank || 0;
+        rank = maxRank + 1; // Simple increment by 1
+        
+        logger.debug({
+            threadId: thread.id,
+            channelId: thread.parentId,
+            maxRank,
+            rank
+        }, 'Calculated rank for thread');
+    } catch (error) {
+        logger.warn({ error, threadId: thread.id }, 'Failed to calculate rank, using 0');
+        rank = 0;
+    }
 
     // Create channel entry if it doesn't exist
     await measureDbQuery('upsert_channel', async () => {
@@ -96,19 +119,20 @@ async function handleThreadUpsert(thread: ThreadChannel): Promise<void> {
         .replace(/^-|-$/g, '')
         .substring(0, 255);
 
-    // Upsert thread
+    // Upsert thread with rank
     await measureDbQuery('upsert_thread', async () => {
         await query(`
       INSERT INTO threads (
         id, channel_id, slug, title, author_alias, body_html, 
-        tags, reply_count, created_at, updated_at
+        tags, reply_count, rank, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         title = VALUES(title),
         body_html = VALUES(body_html),
         tags = VALUES(tags),
         reply_count = VALUES(reply_count),
+        rank = VALUES(rank),
         updated_at = VALUES(updated_at)
     `, [
             thread.id,
@@ -119,6 +143,7 @@ async function handleThreadUpsert(thread: ThreadChannel): Promise<void> {
             htmlContent,
             tagNames ? JSON.stringify(tagNames) : null,
             replyCount,
+            rank, // Use the calculated rank
             starterMessage.createdAt,
             new Date(), // Use current time for updated_at since threads don't have editedTimestamp
         ]);
@@ -133,5 +158,6 @@ async function handleThreadUpsert(thread: ThreadChannel): Promise<void> {
         staffTag,
         replyCount,
         tags: tagNames,
+        rank
     }, 'Thread upserted');
 }

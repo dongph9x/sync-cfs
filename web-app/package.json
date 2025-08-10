@@ -8,7 +8,18 @@
         "build": "astro check && astro build && pagefind --site dist",
         "preview": "astro preview",
         "astro": "astro",
-        "pagefind": "pagefind --site dist"
+        "pagefind": "pagefind --site dist",
+        "init-ranks": "tsx src/scripts/initialize-ranks.ts",
+        "migrate-add-rank": "tsx src/scripts/migrate-add-rank.ts",
+        "fix-ranks": "tsx src/scripts/fix-missing-ranks.ts",
+        "test-sync": "tsx src/scripts/test-sync-rank.ts",
+        "fix-columns": "tsx src/scripts/fix-column-lengths.ts",
+        "debug-sync": "tsx src/scripts/debug-sync-process.ts",
+        "fix-history-ranks": "tsx src/scripts/fix-sync-history-ranks.ts",
+        "test-simple-rank": "tsx src/scripts/test-simple-rank.ts",
+        "update-ranks": "tsx src/scripts/update-ranks-after-sync.ts",
+        "smart-sync-with-ranks": "tsx src/scripts/smart-sync-with-ranks.ts",
+        "test-auto-update-ranks": "tsx src/scripts/test-auto-update-ranks.ts"
     },
     "dependencies": {
         "@astrojs/react": "^4.3.0",
@@ -29,6 +40,7 @@
     "devDependencies": {
         "@astrojs/check": "^0.9.0",
         "@types/node": "^20.0.0",
+        "tsx": "^4.20.3",
         "typescript": "^5.0.0"
     }
 }
