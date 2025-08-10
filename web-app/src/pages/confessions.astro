@@ -1,0 +1,95 @@
+---
+import Layout from "../layouts/Layout.astro";
+import TreeView from "../components/TreeView.tsx";
+import { createPool, getThreadsByChannelSlug } from "../lib/db";
+
+// Initialize database connection
+const dbConfig = {
+    host: import.meta.env.MYSQL_HOST || "localhost",
+    port: parseInt(import.meta.env.MYSQL_PORT || "3306"),
+    user: import.meta.env.MYSQL_USER || "root",
+    password: import.meta.env.MYSQL_PASSWORD || "password",
+    database: import.meta.env.MYSQL_DATABASE || "forum",
+};
+
+createPool(dbConfig);
+
+// Fetch confessions threads
+let threads: any[] = [];
+try {
+    threads = await getThreadsByChannelSlug("confessions");
+} catch (error) {
+    console.error("Failed to fetch confessions threads:", error);
+}
+
+// Convert threads to tree structure
+const treeItems = threads.map((thread: any) => ({
+    id: thread.id,
+    title: thread.title,
+    type: 'thread' as const,
+    thread: thread,
+    isExpanded: false,
+}));
+
+const seo = {
+    title: "Confessions - Diễn Đàn Discord",
+    description: "Xem và sắp xếp các confessions trong cộng đồng Discord của chúng tôi.",
+    keywords: ["confessions", "diễn đàn", "discord", "cộng đồng"],
+    canonical: `${Astro.site}confessions/`,
+};
+---
+
+<Layout seo={seo}>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Page Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-4">
+                Confessions
+            </h1>
+            <p class="text-lg text-gray-600 mb-6">
+                Xem và sắp xếp các confessions theo ý thích của bạn. Kéo và thả để thay đổi thứ tự hiển thị.
+            </p>
+        </div>
+
+        <!-- Tree View Container -->
+        <div class="bg-gray-50 rounded-lg p-6">
+            <div class="mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">
+                    Danh Sách Confessions
+                </h2>
+                <p class="text-sm text-gray-600">
+                    Kéo và thả các items để sắp xếp lại thứ tự. Click vào mũi tên để mở rộng/thu gọn.
+                </p>
+            </div>
+            
+            <TreeView client:load items={treeItems} />
+        </div>
+
+        <!-- Instructions -->
+        <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h3 class="text-lg font-medium text-blue-900 mb-3">
+                Hướng Dẫn Sử Dụng
+            </h3>
+            <ul class="space-y-2 text-blue-800">
+                <li class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    Kéo và thả các confessions để sắp xếp lại thứ tự hiển thị
+                </li>
+                <li class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    Click vào mũi tên để mở rộng hoặc thu gọn chi tiết
+                </li>
+                <li class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    Thứ tự sẽ được lưu trong trình duyệt của bạn
+                </li>
+            </ul>
+        </div>
+    </div>
+</Layout>
