@@ -19,6 +19,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Thread } from '../lib/db';
+import ThreadModal from './ThreadModal';
 
 export interface TreeItem {
   id: string;
@@ -38,9 +39,10 @@ interface TreeViewProps {
 interface SortableItemProps {
   item: TreeItem;
   index: number;
+  onThreadClick: (thread: Thread) => void;
 }
 
-function SortableItem({ item, index }: SortableItemProps) {
+function SortableItem({ item, index, onThreadClick }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -76,13 +78,28 @@ function SortableItem({ item, index }: SortableItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className={`bg-white border border-gray-200 rounded-lg p-4 mb-3 transition-colors cursor-move ${
+      className={`bg-white border border-gray-200 rounded-lg p-4 mb-3 transition-colors relative ${
         isDragging ? 'shadow-lg border-blue-400' : 'hover:border-blue-300'
       }`}
     >
-      <div className="flex items-start space-x-4">
+      {/* Drag Handle - chỉ ở góc trên bên trái */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-2 left-2 w-6 h-6 bg-gray-100 hover:bg-gray-200 rounded cursor-move flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-10"
+        title="Kéo để sắp xếp lại"
+      >
+        <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+        </svg>
+      </div>
+              <div 
+          className="flex items-start space-x-4 cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            onThreadClick(thread);
+          }}
+        >
         {/* Vote/Stats Column */}
         <div className="flex flex-col items-center space-y-1 min-w-[60px]">
           <div className="text-sm text-gray-500">
@@ -155,6 +172,18 @@ export default function TreeView({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'rank' | 'title' | 'created_at' | 'reply_count'>('rank');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleThreadClick = (thread: Thread) => {
+    setSelectedThread(thread);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedThread(null);
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -370,7 +399,7 @@ export default function TreeView({
           {searchTerm && ` (tìm kiếm: "${searchTerm}")`}
         </p>
         <p className="text-xs mt-1">
-          Kéo và thả để sắp xếp lại thứ tự hiển thị
+          🖱️ Kéo icon ở góc trái để sắp xếp lại • 🖱️ Click để xem chi tiết
         </p>
       </div>
 
@@ -392,10 +421,18 @@ export default function TreeView({
           strategy={verticalListSortingStrategy}
         >
           {filteredAndSortedItems.map((item, index) => (
-            <SortableItem key={item.id} item={item} index={index} />
+            <SortableItem key={item.id} item={item} index={index} onThreadClick={handleThreadClick} />
           ))}
         </SortableContext>
       </DndContext>
+
+      {/* Thread Modal */}
+      <ThreadModal
+        thread={selectedThread}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }
+
