@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# CSV files
+*.csv
+staff.csv.example
+
+# SQL files
+*.sql
+*.sql.zip
+
+# Test files
+**/*.test.*
+**/*.spec.*
+
+# Development files (keep for build)
+# src/ - REMOVED: needed for TypeScript build
+# *.ts - REMOVED: needed for TypeScript build
+# *.tsx - REMOVED: needed for TypeScript build

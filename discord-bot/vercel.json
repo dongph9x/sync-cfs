@@ -1,0 +1,18 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install",
+  "functions": {
+    "api/sync.js": {
+      "maxDuration": 300
+    },
+    "api/update-ranks.js": {
+      "maxDuration": 60
+    },
+    "api/health.js": {
+      "maxDuration": 10
+    },
+    "api/test.js": {
+      "maxDuration": 10
+    }
+  }
+}

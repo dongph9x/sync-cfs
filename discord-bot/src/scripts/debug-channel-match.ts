@@ -30,7 +30,7 @@ async function debugChannelMatch() {
     });
     
     // Get all threads with their channel info
-    const [threads] = await pool.execute(`
+    const [threadsResult] = await pool.execute(`
       SELECT id, title, channel_id, thread_rank, created_at
       FROM threads 
       ORDER BY created_at DESC 

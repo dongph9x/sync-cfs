@@ -5,18 +5,20 @@
     "main": "dist/index.js",
     "scripts": {
         "dev": "nodemon src/index.ts",
-        "build": "tsc",
+        "build": "npx --package typescript tsc --project .",
         "start": "node dist/index.js",
         "lint": "eslint src/**/*.ts",
         "lint:fix": "eslint src/**/*.ts --fix",
         "format": "prettier --write src/**/*.ts",
-        "typecheck": "tsc --noEmit",
+        "typecheck": "npx --package typescript tsc --noEmit",
         "smart-sync": "ts-node src/scripts/smart-sync.ts",
         "test-smart-sync-ranks": "ts-node src/scripts/test-smart-sync-ranks.ts",
         "compare-update-ranks": "ts-node src/scripts/compare-update-ranks.ts",
         "exact-web-app-logic": "ts-node src/scripts/exact-web-app-logic.ts",
         "debug-channel-match": "ts-node src/scripts/debug-channel-match.ts",
-        "test-web-app-connection": "ts-node src/scripts/test-web-app-connection.ts"
+        "test-web-app-connection": "ts-node src/scripts/test-web-app-connection.ts",
+        "vercel-build": "npm run build",
+        "test-api": "node test-api.js"
     },
     "keywords": [
         "discord",
