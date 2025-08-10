@@ -210,8 +210,11 @@ export default function TreeView({
           break;
         case 'rank':
         default:
-          aValue = a.thread.thread_rank || 0;
-          bValue = b.thread.thread_rank || 0;
+          // Sử dụng thứ tự hiện tại trong treeItems thay vì thread_rank từ database
+          const aIndex = treeItems.findIndex(item => item.id === a.id);
+          const bIndex = treeItems.findIndex(item => item.id === b.id);
+          aValue = aIndex;
+          bValue = bIndex;
           break;
       }
       
@@ -242,6 +245,9 @@ export default function TreeView({
             rank: index + 1,
           }));
 
+          console.log('Sending rank updates:', rankUpdates);
+          console.log('Request body:', JSON.stringify({ rankUpdates }));
+
           fetch('/api/update-ranks', {
             method: 'POST',
             headers: {
@@ -249,11 +255,17 @@ export default function TreeView({
             },
             body: JSON.stringify({ rankUpdates }),
           })
-            .then((response) => {
+            .then(async (response) => {
+              console.log('Response status:', response.status);
+              console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+              
               if (response.ok) {
+                const result = await response.json();
+                console.log('Response body:', result);
                 onItemsReorder(newItems);
               } else {
-                console.error('Failed to update thread ranks');
+                const errorText = await response.text();
+                console.error('Failed to update thread ranks:', response.status, errorText);
               }
             })
             .catch((error) => {
