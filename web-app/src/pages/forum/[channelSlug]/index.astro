@@ -20,15 +20,12 @@ export async function getStaticPaths() {
         password: import.meta.env.MYSQL_PASSWORD || "password",
         database: import.meta.env.MYSQL_DATABASE || "forum",
     };
-
     createPool(dbConfig);
-
-    // Fetch all channels to generate static paths
     try {
         const channels = await getAllChannels();
+        // Include all channels including confessions
         return channels.map((channel) => ({
             params: { channelSlug: channel.slug },
-            props: { channel },
         }));
     } catch (error) {
         console.error("Failed to fetch channels for static paths:", error);
@@ -36,13 +33,7 @@ export async function getStaticPaths() {
     }
 }
 
-interface Props {
-    channel: Channel;
-}
-
-const { channel } = Astro.props;
 const { channelSlug } = Astro.params;
-
 // Initialize database connection
 const dbConfig = {
     host: import.meta.env.MYSQL_HOST || "localhost",
@@ -51,67 +42,67 @@ const dbConfig = {
     password: import.meta.env.MYSQL_PASSWORD || "password",
     database: import.meta.env.MYSQL_DATABASE || "forum",
 };
-
 createPool(dbConfig);
 
-// Fetch threads for this channel
-let threads: Thread[] = [];
+let channel: Channel | null = null;
+let threads: Thread[] = []; // Use imported Thread type
 try {
-    threads = await getThreadsByChannelSlug(channelSlug as string);
+    channel = await getChannelBySlug(channelSlug as string);
+    if (channel) {
+        threads = await getThreadsByChannelSlug(channelSlug as string);
+    }
 } catch (error) {
-    console.error("Failed to fetch threads:", error);
+    console.error(`Failed to fetch data for channel ${channelSlug}:`, error);
 }
 
 // Convert threads to tree structure for TreeView
-const treeItems: TreeItem[] = threads.map((thread) => ({
+const treeItems: any[] = threads.map((thread) => ({ // Explicitly type treeItems
     id: thread.id,
     title: thread.title,
-    type: 'thread' as const,
+    type: 'thread' as const, // Use 'as const' for literal type
     thread: thread,
     isExpanded: false,
 }));
 
+// SEO
 const seo = {
-    title: `${channel.name} - Forum Channel`,
-    description:
-        channel.description ||
-        `Browse discussions in the ${channel.name} channel. Join the conversation on various topics.`,
-    keywords: [
-        "forum",
-        "channel",
-        channel.name.toLowerCase(),
-        "discord",
-        "community",
-    ],
-    canonical: `${Astro.site}forum/${channel.slug}/`,
+    title: `${channel?.name || "Channel"} - Forum`,
+    description: channel?.description || `Xem các threads trong kênh ${channel?.name || "channel"}`,
+    keywords: ["forum", "channel", channel?.name?.toLowerCase() || "channel", "discord", "cộng đồng"],
+    canonical: `${Astro.site}forum/${channelSlug}/`,
 };
 
-// Generate structured data for breadcrumbs
+// Generate structured data
+const structuredData = generateStructuredData({
+    type: "WebSite",
+    name: channel?.name || "Channel",
+    url: `/forum/${channelSlug}/`,
+    description: channel?.description || `Xem các threads trong kênh ${channel?.name || "channel"}`,
+});
+
+// Generate breadcrumb schema
 const breadcrumbSchema = generateStructuredData({
     type: "BreadcrumbList",
     breadcrumbs: [
         { name: "Home", url: Astro.site!.toString() },
         { name: "Forum", url: `${Astro.site}forum/` },
-        { name: channel.name, url: `${Astro.site}forum/${channel.slug}/` },
+        { name: channel?.name || "Channel", url: `${Astro.site}forum/${channelSlug}/` },
     ],
 });
 ---
 
 <Layout seo={seo}>
-    <!-- Structured Data -->
-    <script
-        type="application/ld+json"
-        set:html={JSON.stringify(breadcrumbSchema)}
-    />
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Breadcrumb -->
-        <nav class="flex mb-8" aria-label="Breadcrumb">
-            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+    <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+    
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb Navigation -->
+        <nav class="mb-8" aria-label="Breadcrumb">
+            <ol class="flex items-center space-x-1 md:space-x-3">
                 <li class="inline-flex items-center">
                     <a
                         href="/"
-                        class="inline-flex items-center text-sm font-medium text-stack-gray-700 hover:text-stack-blue"
+                        class="inline-flex items-center text-sm font-medium text-stack-gray-700 hover:text-stack-gray-900"
                     >
                         <svg
                             class="w-4 h-4 mr-2"
@@ -122,136 +113,82 @@ const breadcrumbSchema = generateStructuredData({
                                 d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"
                             ></path>
                         </svg>
-                        Trang Chủ
+                        Trang chủ
                     </a>
                 </li>
                 <li>
                     <div class="flex items-center">
                         <svg
-                            class="w-6 h-6 text-stack-gray-400"
+                            class="w-6 h-6 text-gray-400"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                         >
                             <path
                                 fill-rule="evenodd"
                                 d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                                clip-rule="evenodd"></path>
+                                clip-rule="evenodd"
+                            ></path>
                         </svg>
                         <a
                             href="/forum/"
-                            class="ml-1 text-sm font-medium text-stack-gray-700 hover:text-stack-blue md:ml-2"
-                            >Diễn Đàn</a
+                            class="ml-1 text-sm font-medium text-stack-gray-700 hover:text-stack-gray-900 md:ml-2"
                         >
+                            Forum
+                        </a>
                     </div>
                 </li>
-                <li>
+                <li aria-current="page">
                     <div class="flex items-center">
                         <svg
-                            class="w-6 h-6 text-stack-gray-400"
+                            class="w-6 h-6 text-gray-400"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                         >
                             <path
                                 fill-rule="evenodd"
                                 d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                                clip-rule="evenodd"></path>
+                                clip-rule="evenodd"
+                            ></path>
                         </svg>
-                        <span
-                            class="ml-1 text-sm font-medium text-stack-gray-500 md:ml-2"
-                            >{channel.name}</span
-                        >
+                        <span class="ml-1 text-sm font-medium text-stack-gray-500 md:ml-2">
+                            {channel?.name || "Channel"}
+                        </span>
                     </div>
                 </li>
             </ol>
         </nav>
 
-        <!-- Channel Header -->
+        <!-- Page Header -->
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-stack-gray-900 mb-4">
-                {channel.name}
+            <h1 class="text-3xl font-bold text-gray-900 mb-4">
+                {channel?.name || "Kênh"}
             </h1>
-            {
-                channel.description && (
-                    <p class="text-lg text-stack-gray-600 mb-4">
-                        {channel.description}
-                    </p>
-                )
-            }
-
-            <div
-                class="flex items-center space-x-6 text-sm text-stack-gray-600"
-            >
-                <span class="flex items-center">
-                    <svg
-                        class="w-4 h-4 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                        ></path>
-                    </svg>
-                    {threads.length} chủ đề
-                </span>
-
-                <time
-                    datetime={channel.created_at.toISOString()}
-                    class="flex items-center"
-                >
-                    <svg
-                        class="w-4 h-4 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        ></path>
-                    </svg>
-                    Tạo{" "}
-                    {new Intl.DateTimeFormat("vi-VN", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                    }).format(channel.created_at)}
-                </time>
-            </div>
+            {channel?.description && (
+                <p class="text-lg text-gray-600 mb-6">{channel.description}</p>
+            )}
         </div>
 
-        <!-- Threads TreeView -->
-        <div class="space-y-4">
-            {threads.length > 0 ? (
-                <TreeView client:load items={treeItems} channelSlug={channelSlug} />
-            ) : (
-                <div class="text-center py-12">
-                    <svg
-                        class="w-12 h-12 text-stack-gray-400 mx-auto mb-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                        />
-                    </svg>
-                    <h3 class="text-lg font-medium text-stack-gray-900 mb-2">
-                        Chưa có chủ đề nào
-                    </h3>
-                    <p class="text-stack-gray-600">
-                        Kênh này chưa có chủ đề nào. Hãy quay lại sau để xem các cuộc thảo luận mới.
-                    </p>
-                </div>
-            )}
+        <!-- Tree View Container -->
+        <div class="bg-gray-50 rounded-lg p-6">
+            <div class="mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">
+                    Danh Sách Threads
+                </h2>
+                <p class="text-sm text-gray-600">
+                    Kéo và thả các items để sắp xếp lại thứ tự hiển thị
+                </p>
+            </div>
+
+            <div class="space-y-4">
+                {threads.length > 0 ? (
+                    <TreeView client:only="react" items={treeItems} channelSlug={channelSlug as string} />
+                ) : (
+                    <div class="text-center py-12">
+                        <p class="text-gray-500 text-lg">Chưa có threads nào trong kênh này.</p>
+                        <p class="text-gray-500 text-sm mt-2">Hãy là người đầu tiên tạo một thread!</p>
+                    </div>
+                )}
+            </div>
         </div>
     </div>
 </Layout>

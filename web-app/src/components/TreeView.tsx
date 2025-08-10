@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -18,7 +18,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Thread, updateThreadRanks } from '../lib/db';
+import { Thread } from '../lib/db';
 
 export interface TreeItem {
   id: string;
@@ -29,46 +29,18 @@ export interface TreeItem {
   isExpanded?: boolean;
 }
 
+interface TreeViewProps {
+  items?: TreeItem[];
+  onItemsReorder?: (items: TreeItem[]) => void;
+  channelSlug?: string;
+}
+
 interface SortableItemProps {
   item: TreeItem;
-  onToggle: (id: string) => void;
+  index: number;
 }
 
-// Helper functions for formatting and extracting data (copied from ThreadCard.astro logic)
-function formatDate(date: Date | string): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('vi-VN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(dateObj);
-}
-
-function getAuthorInitials(authorAlias: string): string {
-  return authorAlias
-    .split(' ')
-    .map(name => name.charAt(0))
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function isStaffMember(authorAlias: string): boolean {
-  const staffMembers = ['admin', 'moderator', 'staff'];
-  return staffMembers.some(staff => 
-    authorAlias.toLowerCase().includes(staff.toLowerCase())
-  );
-}
-
-function extractTextFromHtml(html: string | null): string {
-  if (!html) return '';
-  // Simple HTML tag removal
-  return html.replace(/<[^>]*>/g, '').trim();
-}
-
-function SortableItem({ item, onToggle }: SortableItemProps) {
+function SortableItem({ item, index }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -81,136 +53,105 @@ function SortableItem({ item, onToggle }: SortableItemProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.5 : 1,
   };
 
-  if (item.type === 'thread' && item.thread) {
-    const thread = item.thread;
-    
+  if (item.type !== 'thread' || !item.thread) {
     return (
       <div
         ref={setNodeRef}
         style={style}
-        className={`bg-white border border-gray-200 rounded-lg p-4 mb-3 cursor-move hover:border-blue-300 transition-colors ${
-          isDragging ? 'opacity-50' : ''
-        }`}
         {...attributes}
         {...listeners}
+        className="bg-gray-100 border border-gray-200 rounded-lg p-4 mb-3 cursor-move hover:bg-gray-50"
       >
-        <div className="flex items-start space-x-4">
-          {/* Vote/Stats Column */}
-          <div className="flex-shrink-0 w-16 text-center">
-            <div className="text-2xl font-bold text-gray-900">{thread.reply_count}</div>
-            <div className="text-sm text-gray-600">trả lời</div>
+        <h3 className="text-lg font-semibold text-gray-900">{item.title}</h3>
+      </div>
+    );
+  }
+
+  const thread = item.thread;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`bg-white border border-gray-200 rounded-lg p-4 mb-3 transition-colors cursor-move ${
+        isDragging ? 'shadow-lg border-blue-400' : 'hover:border-blue-300'
+      }`}
+    >
+      <div className="flex items-start space-x-4">
+        {/* Vote/Stats Column */}
+        <div className="flex flex-col items-center space-y-1 min-w-[60px]">
+          <div className="text-sm text-gray-500">
+            {thread.reply_count} trả lời
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center space-x-2 mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 truncate">
+              {thread.title}
+            </h3>
+            {thread.tags && thread.tags.length > 0 && (
+              <div className="flex space-x-1">
+                {thread.tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Content Column */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold mb-2">
-                  <a
-                    href={`/forum/${thread.channel_slug}/${thread.slug}/`}
-                    className="hover:text-blue-600 transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {thread.title}
-                  </a>
-                </h3>
+          {thread.body_html && (
+            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+              {thread.body_html.replace(/<[^>]*>/g, '').trim()}
+            </p>
+          )}
 
-                {thread.body_html && (
-                  <p className="text-gray-700 text-sm mb-3">
-                    {extractTextFromHtml(thread.body_html)}
-                  </p>
-                )}
-
-                {/* Tags */}
-                {thread.tags && thread.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {thread.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+          {/* Author and Date */}
+          <div className="flex items-center justify-between text-sm text-gray-500">
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs font-medium">
+                  {thread.author_alias.substring(0, 2).toUpperCase()}
+                </div>
+                <span className="text-gray-700">
+                  {thread.author_alias}
+                </span>
               </div>
             </div>
-
-            {/* Meta Information */}
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-gray-400 rounded-full flex items-center justify-center text-xs text-white font-medium">
-                    {getAuthorInitials(thread.author_alias)}
-                  </div>
-                  <span>
-                    {thread.author_alias}
-                    {isStaffMember(thread.author_alias) && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 ml-1">
-                        Staff
-                      </span>
-                    )}
-                  </span>
-                </div>
-
-                <time dateTime={thread.created_at.toISOString()}>
-                  hỏi {formatDate(thread.created_at)}
-                </time>
-              </div>
-
-              {new Date(thread.updated_at) > new Date(thread.created_at) && (
-                <time
-                  dateTime={thread.updated_at.toISOString()}
-                  className="text-gray-500"
-                >
-                  sửa đổi {formatDate(thread.updated_at)}
+            <div className="flex items-center space-x-4">
+              <time dateTime={thread.created_at.toISOString()}>
+                {new Date(thread.created_at).toLocaleDateString('vi-VN')}
+              </time>
+              {thread.updated_at && thread.updated_at !== thread.created_at && (
+                <time dateTime={thread.updated_at.toISOString()}>
+                  Cập nhật: {new Date(thread.updated_at).toLocaleDateString('vi-VN')}
                 </time>
               )}
             </div>
           </div>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3 cursor-move hover:border-gray-300 transition-colors ${
-        isDragging ? 'opacity-50' : ''
-      }`}
-      {...attributes}
-      {...listeners}
-    >
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">{item.title}</h3>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle(item.id);
-          }}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          {item.isExpanded ? '▼' : '▶'}
-        </button>
-      </div>
     </div>
   );
 }
 
-interface TreeViewProps {
-  items: TreeItem[];
-  onItemsReorder?: (items: TreeItem[]) => void;
-  channelSlug?: string; // Add channel slug for database updates
-}
-
-export default function TreeView({ items, onItemsReorder, channelSlug }: TreeViewProps) {
+export default function TreeView({ 
+  items = [], 
+  onItemsReorder = () => {}, 
+  channelSlug = '' 
+}: TreeViewProps) {
   const [treeItems, setTreeItems] = useState<TreeItem[]>(items);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -219,67 +160,101 @@ export default function TreeView({ items, onItemsReorder, channelSlug }: TreeVie
     })
   );
 
-  async function handleDragEnd(event: DragEndEvent) {
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    setTreeItems(items);
+  }, [items]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (active.id !== over?.id) {
       setTreeItems((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over?.id);
+        const oldIndex = items.findIndex(item => item.id === active.id);
+        const newIndex = items.findIndex(item => item.id === over?.id);
 
         const newItems = arrayMove(items, oldIndex, newIndex);
-        onItemsReorder?.(newItems); // Callback for parent component
         
         // Update ranks in database
         if (channelSlug) {
-          setIsUpdating(true);
-          updateRanksInDatabase(newItems).finally(() => {
-            setIsUpdating(false);
-          });
+          const rankUpdates = newItems.map((item, index) => ({
+            threadId: item.id,
+            rank: index + 1,
+          }));
+          
+          fetch('/api/update-ranks', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ rankUpdates }),
+          })
+            .then((response) => {
+              if (response.ok) {
+                onItemsReorder(newItems);
+              } else {
+                console.error('Failed to update thread ranks');
+              }
+            })
+            .catch((error) => {
+              console.error('Failed to update thread ranks:', error);
+            });
+        } else {
+          onItemsReorder(newItems);
         }
-        
+
         return newItems;
       });
     }
-  }
-
-  async function updateRanksInDatabase(items: TreeItem[]) {
-    try {
-      const rankUpdates = items
-        .filter(item => item.type === 'thread' && item.thread)
-        .map((item, index) => ({
-          threadId: item.id,
-          rank: index * 10 // Use increments of 10 for flexibility
-        }));
-
-      if (rankUpdates.length > 0) {
-        await updateThreadRanks(rankUpdates);
-        console.log('Thread ranks updated successfully');
-      }
-    } catch (error) {
-      console.error('Failed to update thread ranks:', error);
-      // Optionally show user feedback about the error
-    }
-  }
-
-  const handleToggle = (id: string) => {
-    setTreeItems((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, isExpanded: !item.isExpanded } : item
-      )
-    );
   };
 
+  console.log('TreeView rendered with items:', treeItems);
+
+  if (!isClient) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-4 p-3 bg-gray-100 text-gray-800 rounded-lg">
+          <p className="text-sm">🔄 Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!treeItems || treeItems.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg">
+          <p className="text-sm">❌ No items provided to TreeView</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg">
+        <p className="text-sm">
+          ✅ TreeView: Hiển thị {treeItems.length} threads
+        </p>
+        <p className="text-xs mt-1">
+          Kéo và thả để sắp xếp lại thứ tự hiển thị
+        </p>
+      </div>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={treeItems} strategy={verticalListSortingStrategy}>
-          {treeItems.map((item) => (
-            <SortableItem key={item.id} item={item} onToggle={handleToggle} />
+        <SortableContext
+          items={treeItems.map(item => item.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {treeItems.map((item, index) => (
+            <SortableItem key={item.id} item={item} index={index} />
           ))}
         </SortableContext>
       </DndContext>

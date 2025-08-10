@@ -1,7 +1,14 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import TreeView from "../components/TreeView.tsx";
-import { createPool, getThreadsByChannelSlug } from "../lib/db";
+import TreeView, { TreeItem } from "../components/TreeView.tsx";
+import {
+    createPool,
+    getThreadsByChannelSlug,
+    getChannelBySlug,
+    type Channel,
+    type Thread,
+} from "../lib/db";
+import { generateStructuredData } from "../lib/seo";
 
 // Initialize database connection
 const dbConfig = {
@@ -14,16 +21,19 @@ const dbConfig = {
 
 createPool(dbConfig);
 
-// Fetch confessions threads
-let threads: any[] = [];
+let channel: Channel | null = null;
+let threads: Thread[] = [];
 try {
-    threads = await getThreadsByChannelSlug("confessions");
+    channel = await getChannelBySlug("confessions");
+    if (channel) {
+        threads = await getThreadsByChannelSlug("confessions");
+    }
 } catch (error) {
-    console.error("Failed to fetch confessions threads:", error);
+    console.error("Failed to fetch confessions data:", error);
 }
 
-// Convert threads to tree structure
-const treeItems = threads.map((thread: any) => ({
+// Convert threads to tree structure for TreeView
+const treeItems: TreeItem[] = threads.map((thread: any) => ({
     id: thread.id,
     title: thread.title,
     type: 'thread' as const,
@@ -31,15 +41,26 @@ const treeItems = threads.map((thread: any) => ({
     isExpanded: false,
 }));
 
+// SEO
 const seo = {
-    title: "Confessions - Diễn Đàn Discord",
-    description: "Xem và sắp xếp các confessions trong cộng đồng Discord của chúng tôi.",
-    keywords: ["confessions", "diễn đàn", "discord", "cộng đồng"],
+    title: "📝 Confessions - Forum",
+    description: "Nơi chia sẻ những câu chuyện, tâm sự và confessions của cộng đồng",
+    keywords: ["confessions", "tâm sự", "chia sẻ", "forum", "cộng đồng"],
     canonical: `${Astro.site}confessions/`,
 };
+
+// Generate structured data
+const structuredData = generateStructuredData({
+    type: "WebSite",
+    name: "Confessions",
+    url: "/confessions/",
+    description: "Nơi chia sẻ những câu chuyện, tâm sự và confessions của cộng đồng",
+});
 ---
 
 <Layout seo={seo}>
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+    
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Page Header -->
         <div class="text-center mb-8">
@@ -58,38 +79,20 @@ const seo = {
                     Danh Sách Confessions
                 </h2>
                 <p class="text-sm text-gray-600">
-                    Kéo và thả các items để sắp xếp lại thứ tự. Click vào mũi tên để mở rộng/thu gọn.
+                    Kéo và thả các items để sắp xếp lại thứ tự hiển thị
                 </p>
             </div>
-            
-            <TreeView client:load items={treeItems} channelSlug="confessions" />
-        </div>
 
-        <!-- Instructions -->
-        <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 class="text-lg font-medium text-blue-900 mb-3">
-                Hướng Dẫn Sử Dụng
-            </h3>
-            <ul class="space-y-2 text-blue-800">
-                <li class="flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                    </svg>
-                    Kéo và thả các confessions để sắp xếp lại thứ tự hiển thị
-                </li>
-                <li class="flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                    </svg>
-                    Click vào mũi tên để mở rộng hoặc thu gọn chi tiết
-                </li>
-                <li class="flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                    </svg>
-                    Thứ tự sẽ được lưu trong trình duyệt của bạn
-                </li>
-            </ul>
+            <div class="space-y-4">
+                {threads.length > 0 ? (
+                    <TreeView client:only="react" items={treeItems} channelSlug="confessions" />
+                ) : (
+                    <div class="text-center py-12">
+                        <p class="text-gray-500 text-lg">Chưa có confessions nào được đăng.</p>
+                        <p class="text-gray-500 text-sm mt-2">Hãy là người đầu tiên chia sẻ!</p>
+                    </div>
+                )}
+            </div>
         </div>
     </div>
 </Layout>
