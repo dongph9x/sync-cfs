@@ -91,7 +91,7 @@ const seo = {
         channel.name.toLowerCase(),
         "discord",
         "community",
-        ...(thread.tags || []),
+        ...(Array.isArray(thread.tags) ? thread.tags : []),
     ],
     canonical: `${Astro.site}forum/${channel.slug}/${thread.slug}/`,
 };

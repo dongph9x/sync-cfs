@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     // Update ranks
     for (const update of rankUpdates) {
       await pool.execute(
-        'UPDATE threads SET rank = ? WHERE id = ?',
+        'UPDATE threads SET thread_rank = ? WHERE id = ?',
         [update.rank, update.threadId]
       );
     }

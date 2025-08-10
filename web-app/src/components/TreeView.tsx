@@ -210,11 +210,8 @@ export default function TreeView({
           break;
         case 'rank':
         default:
-          // For rank sorting, use the current order in treeItems
-          const aIndex = treeItems.findIndex(item => item.id === a.id);
-          const bIndex = treeItems.findIndex(item => item.id === b.id);
-          aValue = aIndex;
-          bValue = bIndex;
+          aValue = a.thread.thread_rank || 0;
+          bValue = b.thread.thread_rank || 0;
           break;
       }
       

@@ -198,9 +198,9 @@ async function syncSpecificThread(
     let rank = 0;
     try {
         const [maxRankResult] = await query(`
-            SELECT COALESCE(MAX(rank), 0) as max_rank 
+            SELECT COALESCE(MAX(thread_rank), 0) as max_rank 
             FROM threads 
-            WHERE channel_id = ? AND rank IS NOT NULL
+            WHERE channel_id = ? AND thread_rank IS NOT NULL
         `, [thread.parentId!]);
         
         const maxRank = (maxRankResult as any[])[0]?.max_rank || 0;
@@ -278,15 +278,16 @@ async function syncThread(thread: ThreadChannel, stats: SyncStats, rank: number)
     // Upsert thread with rank
     await query(`
     INSERT INTO threads (
-      id, channel_id, slug, title, author_alias, body_html, 
-      tags, reply_count, rank, created_at, updated_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, channel_id, slug, title, author_alias, 
+      body_html, tags, reply_count, thread_rank, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       title = VALUES(title),
+      author_alias = VALUES(author_alias),
       body_html = VALUES(body_html),
       tags = VALUES(tags),
-      rank = VALUES(rank),
+      reply_count = VALUES(reply_count),
+      thread_rank = VALUES(thread_rank),
       updated_at = VALUES(updated_at)
   `, [
         thread.id,
@@ -297,7 +298,7 @@ async function syncThread(thread: ThreadChannel, stats: SyncStats, rank: number)
         htmlContent,
         tagNames ? JSON.stringify(tagNames) : null,
         0, // Will be updated when we process posts
-        rank, // Use the provided rank
+        rank, // Use the calculated rank
         starterMessage.createdAt,
         new Date(),
     ]);

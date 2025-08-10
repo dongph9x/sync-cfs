@@ -23,9 +23,8 @@ async function smartSyncWithRanks() {
       console.log(output.trim());
       
       // Check if complete workflow finished successfully
-      if (output.includes('Complete workflow finished successfully') || 
-          output.includes('Smart sync completed successfully') ||
-          output.includes('All ranks updated successfully')) {
+      if (output.includes('Smart sync completed successfully') || 
+          output.includes('All thread_ranks updated successfully')) {
         syncCompleted = true;
       }
     });

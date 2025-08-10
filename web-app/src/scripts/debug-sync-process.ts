@@ -35,10 +35,9 @@ async function debugSyncProcess() {
         confessionsThreads.forEach((thread, index) => {
           console.log(`${index + 1}. ID: ${thread.id}`);
           console.log(`   Title: ${thread.title}`);
-          console.log(`   Rank: ${thread.rank}`);
           console.log(`   Channel ID: ${thread.channel_id}`);
+          console.log(`   Thread Rank: ${thread.thread_rank}`);
           console.log(`   Created: ${thread.created_at}`);
-          console.log(`   Updated: ${thread.updated_at}`);
           console.log('---');
         });
       }
@@ -52,9 +51,9 @@ async function debugSyncProcess() {
     const pool = getPool();
     
     const [threadsWithoutRank] = await pool.execute(`
-      SELECT id, title, channel_id, rank, created_at 
+      SELECT id, title, channel_id, thread_rank, created_at 
       FROM threads 
-      WHERE rank IS NULL OR rank = 0
+      WHERE thread_rank IS NULL OR thread_rank = 0
       ORDER BY created_at DESC
     `);
     
@@ -64,12 +63,12 @@ async function debugSyncProcess() {
         console.log(`${index + 1}. ID: ${thread.id}`);
         console.log(`   Title: ${thread.title}`);
         console.log(`   Channel ID: ${thread.channel_id}`);
-        console.log(`   Rank: ${thread.rank}`);
+        console.log(`   Thread Rank: ${thread.thread_rank}`);
         console.log(`   Created: ${thread.created_at}`);
         console.log('---');
       });
     } else {
-      console.log('✅ All threads have proper rank values');
+      console.log('✅ All threads have proper thread_rank values');
     }
     
     // Check database schema

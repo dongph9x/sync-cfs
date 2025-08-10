@@ -31,47 +31,29 @@ async function getAllChannels(): Promise<Channel[]> {
 
 async function updateRanksAfterSync(): Promise<void> {
   try {
-    logger.info('🔄 Updating ranks after sync...');
+    logger.info('🔄 Updating thread_ranks after sync...');
     
-    // Create a separate pool with web-app configuration
+    // Create a separate pool for this operation with web-app config
     const webAppPool = mysql.createPool({
-      host: process.env.MYSQL_HOST || "localhost",
-      port: parseInt(process.env.MYSQL_PORT || "3306"),
-      user: process.env.MYSQL_USER || "root",
-      password: process.env.MYSQL_PASSWORD || "",
-      database: process.env.MYSQL_DATABASE || "forum",
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
+      host: process.env.MYSQL_HOST || 'localhost',
+      port: parseInt(process.env.MYSQL_PORT || '3306'),
+      user: process.env.MYSQL_USER || 'root',
+      password: process.env.MYSQL_PASSWORD,
+      database: process.env.MYSQL_DATABASE || 'forum',
       supportBigNumbers: true,
-      bigNumberStrings: true
-    } as mysql.PoolOptions);
+      bigNumberStrings: true,
+    });
     
-    // Get all channels - using exact same logic as web-app
-    const [channelsResult] = await webAppPool.execute(`
-      SELECT 
-        c.*,
-        COUNT(t.id) as thread_count
-      FROM channels c
-      LEFT JOIN threads t ON c.id = t.channel_id
-      GROUP BY c.id
-      ORDER BY c.position ASC, c.name ASC
-    `);
-    
-    const channels = (channelsResult as any[]).map(row => ({
-      ...row,
-      id: String(row.id),
-      thread_count: parseInt(row.thread_count) || 0
-    }));
-    
-    logger.info(`Found ${channels.length} channels`);
+    // Get all channels
+    const channels = await getAllChannels();
+    logger.info(`Found ${channels.length} channels to update ranks`);
     
     for (const channel of channels) {
       logger.info(`📝 Processing channel: ${channel.name} (${channel.slug})`);
       
       // Get all threads in this channel, ordered by created_at DESC (newest first)
       const [threads] = await webAppPool.execute(`
-        SELECT id, title, rank, created_at 
+        SELECT id, title, thread_rank, created_at 
         FROM threads 
         WHERE channel_id = ? 
         ORDER BY created_at DESC
@@ -86,55 +68,56 @@ async function updateRanksAfterSync(): Promise<void> {
       }
       
       // Update ranks based on index (newest thread gets rank 1, oldest gets highest rank)
-      logger.info('🔄 Updating ranks based on created_at order (newest first):');
+      logger.info('🔄 Updating thread_ranks based on created_at order (newest first):');
       for (let i = 0; i < channelThreads.length; i++) {
         const thread = channelThreads[i];
         const newRank = i + 1; // 1, 2, 3, ...
         
         await webAppPool.execute(`
           UPDATE threads 
-          SET rank = ?, updated_at = NOW()
+          SET thread_rank = ?, updated_at = NOW()
           WHERE id = ?
         `, [newRank, thread.id]);
         
-        logger.info(`  ${i + 1}. "${thread.title}" - Rank: ${thread.rank} → ${newRank} (Created: ${thread.created_at})`);
+        logger.info(`  ${i + 1}. "${thread.title}" - Thread Rank: ${thread.thread_rank} → ${newRank} (Created: ${thread.created_at})`);
       }
       
-      logger.info(`✅ Updated ranks for ${channelThreads.length} threads in channel ${channel.name}`);
+      logger.info(`✅ Updated thread_ranks for ${channelThreads.length} threads in channel ${channel.name}`);
     }
     
-    logger.info('🎉 All ranks updated successfully!');
+    logger.info('🎉 All thread_ranks updated successfully!');
     
     // Verify the results
     logger.info('🔍 Verifying results...');
     const [verificationResult] = await webAppPool.execute(`
       SELECT 
         COUNT(*) as total_threads,
-        COUNT(CASE WHEN rank = 0 OR rank IS NULL THEN 1 END) as threads_without_rank,
-        COUNT(CASE WHEN rank > 0 THEN 1 END) as threads_with_rank,
-        MIN(rank) as min_rank,
-        MAX(rank) as max_rank
+        COUNT(CASE WHEN thread_rank = 0 OR thread_rank IS NULL THEN 1 END) as threads_without_rank,
+        COUNT(CASE WHEN thread_rank > 0 THEN 1 END) as threads_with_rank,
+        MIN(thread_rank) as min_rank,
+        MAX(thread_rank) as max_rank
       FROM threads
     `);
     
     const stats = (verificationResult as any[])[0];
-    logger.info('📊 Final statistics:');
-    logger.info(`  - Total threads: ${stats.total_threads}`);
-    logger.info(`  - Threads with rank: ${stats.threads_with_rank}`);
-    logger.info(`  - Threads without rank: ${stats.threads_without_rank}`);
-    logger.info(`  - Rank range: ${stats.min_rank} - ${stats.max_rank}`);
+    logger.info('📊 Final statistics:', {
+      total_threads: stats.total_threads,
+      threads_with_rank: stats.threads_with_rank,
+      threads_without_rank: stats.threads_without_rank,
+      rank_range: `${stats.min_rank} - ${stats.max_rank}`
+    });
     
     if (stats.threads_without_rank === 0) {
-      logger.info('✅ All threads now have proper rank values!');
+      logger.info('✅ All threads now have proper thread_rank values!');
     } else {
-      logger.warn(`⚠️ Still ${stats.threads_without_rank} threads without rank`);
+      logger.warn(`⚠️ Still ${stats.threads_without_rank} threads without thread_rank`);
     }
     
-    // Close the web-app pool
+    // Close the pool after all operations are complete
     await webAppPool.end();
     
   } catch (error) {
-    logger.error('❌ Error updating ranks after sync:', error);
+    logger.error({ error }, 'Failed to update thread_ranks after sync');
     throw error;
   }
 }

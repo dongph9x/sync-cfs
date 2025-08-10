@@ -1,7 +1,6 @@
-import type { APIRoute } from 'astro';
 import { updateThreadRanks } from '../../lib/db';
 
-export const POST: APIRoute = async ({ request }) => {
+export async function POST({ request }: { request: Request }) {
   try {
     const body = await request.json();
     const { rankUpdates } = body;
@@ -15,24 +14,27 @@ export const POST: APIRoute = async ({ request }) => {
 
     await updateThreadRanks(rankUpdates);
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'Thread ranks updated successfully' 
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
+
   } catch (error) {
     console.error('Error updating thread ranks:', error);
     
-    // Handle JSON parsing errors specifically
     if (error instanceof SyntaxError) {
       return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-    
+
     return new Response(JSON.stringify({ error: 'Failed to update thread ranks' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
-};
+}

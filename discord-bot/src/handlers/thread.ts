@@ -41,10 +41,10 @@ async function handleThreadUpsert(thread: ThreadChannel): Promise<void> {
     let rank = 0;
     try {
         const [maxRankResult] = await query(`
-            SELECT COALESCE(MAX(rank), 0) as max_rank 
+            SELECT COALESCE(MAX(thread_rank), 0) as max_rank 
             FROM threads 
-            WHERE channel_id = ? AND rank IS NOT NULL
-        `, [thread.parentId!]);
+            WHERE channel_id = ? AND thread_rank IS NOT NULL
+        `, [thread.parentId]);
         
         const maxRank = (maxRankResult as any[])[0]?.max_rank || 0;
         rank = maxRank + 1; // Simple increment by 1
@@ -124,7 +124,7 @@ async function handleThreadUpsert(thread: ThreadChannel): Promise<void> {
         await query(`
       INSERT INTO threads (
         id, channel_id, slug, title, author_alias, body_html, 
-        tags, reply_count, rank, created_at, updated_at
+        tags, reply_count, thread_rank, created_at, updated_at
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
@@ -132,7 +132,7 @@ async function handleThreadUpsert(thread: ThreadChannel): Promise<void> {
         body_html = VALUES(body_html),
         tags = VALUES(tags),
         reply_count = VALUES(reply_count),
-        rank = VALUES(rank),
+        thread_rank = VALUES(thread_rank),
         updated_at = VALUES(updated_at)
     `, [
             thread.id,

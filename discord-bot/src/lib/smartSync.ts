@@ -518,14 +518,16 @@ async function upsertThread(thread: ThreadChannel, rank: number): Promise<void> 
 
     await query(`
         INSERT INTO threads (
-            id, channel_id, slug, title, author_alias, body_html, tags, reply_count, rank, created_at, updated_at
+            id, channel_id, slug, title, author_alias, 
+            body_html, tags, reply_count, thread_rank, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
-            slug = VALUES(slug),
             title = VALUES(title),
+            author_alias = VALUES(author_alias),
             body_html = VALUES(body_html),
             tags = VALUES(tags),
-            rank = VALUES(rank),
+            reply_count = VALUES(reply_count),
+            thread_rank = VALUES(thread_rank),
             updated_at = VALUES(updated_at)
     `, [
         thread.id,

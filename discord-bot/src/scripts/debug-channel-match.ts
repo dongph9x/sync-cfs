@@ -30,17 +30,17 @@ async function debugChannelMatch() {
     });
     
     // Get all threads with their channel info
-    const [threadsResult] = await pool.execute(`
-      SELECT id, title, channel_id, rank, created_at
+    const [threads] = await pool.execute(`
+      SELECT id, title, channel_id, thread_rank, created_at
       FROM threads 
-      ORDER BY created_at DESC
-      LIMIT 10
+      ORDER BY created_at DESC 
+      LIMIT 5
     `);
     
     const threads = threadsResult as any[];
     console.log(`\nFound ${threads.length} sample threads:`);
     threads.forEach(thread => {
-      console.log(`  - "${thread.title}": ThreadID=${thread.id}, ChannelID=${thread.channel_id}, Rank=${thread.rank}`);
+      console.log(`  - "${thread.title}": ThreadID=${thread.id}, ChannelID=${thread.channel_id}, ThreadRank=${thread.thread_rank}`);
     });
     
     // Test matching for each channel

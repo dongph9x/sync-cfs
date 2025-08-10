@@ -54,10 +54,10 @@ export interface Thread {
   slug: string;
   title: string;
   author_alias: string;
-  body_html: string | null;
-  tags: string[] | null;
+  body_html: string;
+  tags: string[];
   reply_count: number;
-  rank: number;
+  thread_rank: number;
   created_at: Date;
   updated_at: Date;
   channel_name?: string;
@@ -129,14 +129,14 @@ export async function getThreadsByChannelId(channelId: string): Promise<Thread[]
     FROM threads t
     JOIN channels c ON t.channel_id = c.id
     WHERE t.channel_id = ?
-    ORDER BY t.rank ASC, t.created_at ASC
+    ORDER BY t.thread_rank ASC, t.created_at ASC
   `, [channelId]);
 
   return (rows as any[]).map(row => ({
     ...row,
     id: String(row.id),
     channel_id: String(row.channel_id),
-    rank: parseInt(row.rank) || 0,
+    thread_rank: parseInt(row.thread_rank) || 0,
     tags: row.tags ? (() => {
       try {
         return JSON.parse(row.tags);
@@ -169,7 +169,7 @@ export async function getThreadById(threadId: string, channelId: string): Promis
     ...row,
     id: String(row.id),
     channel_id: String(row.channel_id),
-    rank: parseInt(row.rank) || 0,
+    thread_rank: parseInt(row.thread_rank) || 0,
     tags: row.tags ? (() => {
       try {
         return JSON.parse(row.tags);
@@ -253,7 +253,7 @@ export async function updateThreadRank(threadId: string, newRank: number): Promi
   const pool = getPool();
   await pool.execute(`
     UPDATE threads 
-    SET rank = ?, updated_at = NOW()
+    SET thread_rank = ?, updated_at = NOW()
     WHERE id = ?
   `, [newRank, threadId]);
 }
@@ -269,7 +269,7 @@ export async function updateThreadRanks(rankUpdates: { threadId: string; rank: n
     for (const update of rankUpdates) {
       await connection.execute(`
         UPDATE threads 
-        SET rank = ?, updated_at = NOW()
+        SET thread_rank = ?, updated_at = NOW()
         WHERE id = ?
       `, [update.rank, update.threadId]);
     }
@@ -299,7 +299,7 @@ export async function initializeThreadRanks(channelId: string): Promise<void> {
   for (let i = 0; i < threads.length; i++) {
     await pool.execute(`
       UPDATE threads 
-      SET rank = ?, updated_at = NOW()
+      SET thread_rank = ?, updated_at = NOW()
       WHERE id = ?
     `, [i + 1, threads[i].id]); // Use increment of 1
   }
@@ -320,7 +320,7 @@ export async function syncThreadFromDiscord(threadData: {
   try {
     // Check if thread exists
     const [existingRows] = await pool.execute(`
-      SELECT id, rank FROM threads WHERE id = ?
+      SELECT id, thread_rank FROM threads WHERE id = ?
     `, [threadData.id]);
     
     if ((existingRows as any[]).length > 0) {
@@ -351,9 +351,9 @@ export async function syncThreadFromDiscord(threadData: {
       // Insert new thread with rank
       // Get the maximum rank in the channel, handle NULL values
       const [channelThreads] = await pool.execute(`
-        SELECT COALESCE(MAX(rank), 0) as max_rank 
+        SELECT COALESCE(MAX(thread_rank), 0) as max_rank 
         FROM threads 
-        WHERE channel_id = ? AND rank IS NOT NULL
+        WHERE channel_id = ? AND thread_rank IS NOT NULL
       `, [threadData.channel_id]);
       
       const maxRank = (channelThreads as any[])[0]?.max_rank || 0;
@@ -364,7 +364,7 @@ export async function syncThreadFromDiscord(threadData: {
       await pool.execute(`
         INSERT INTO threads (
           id, channel_id, slug, title, author_alias, 
-          body_html, tags, reply_count, rank, created_at, updated_at
+          body_html, tags, reply_count, thread_rank, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         threadData.id,
@@ -393,7 +393,7 @@ export async function fixMissingRanks(): Promise<void> {
     
     // Get all channels
     const [channels] = await pool.execute(`
-      SELECT DISTINCT channel_id FROM threads WHERE rank IS NULL
+      SELECT DISTINCT channel_id FROM threads WHERE thread_rank IS NULL
     `);
     
     for (const channel of channels as any[]) {
@@ -403,15 +403,15 @@ export async function fixMissingRanks(): Promise<void> {
       // Get threads without rank in this channel, ordered by created_at
       const [threads] = await pool.execute(`
         SELECT id FROM threads 
-        WHERE channel_id = ? AND rank IS NULL 
+        WHERE channel_id = ? AND thread_rank IS NULL 
         ORDER BY created_at ASC
       `, [channelId]);
       
       // Get current max rank in this channel
       const [maxRankResult] = await pool.execute(`
-        SELECT COALESCE(MAX(rank), 0) as max_rank 
+        SELECT COALESCE(MAX(thread_rank), 0) as max_rank 
         FROM threads 
-        WHERE channel_id = ? AND rank IS NOT NULL
+        WHERE channel_id = ? AND thread_rank IS NOT NULL
       `, [channelId]);
       
       let currentRank = (maxRankResult as any[])[0]?.max_rank || 0;
@@ -421,7 +421,7 @@ export async function fixMissingRanks(): Promise<void> {
         currentRank += 1; // Simple increment by 1
         await pool.execute(`
           UPDATE threads 
-          SET rank = ?, updated_at = NOW()
+          SET thread_rank = ?, updated_at = NOW()
           WHERE id = ?
         `, [currentRank, thread.id]);
         

@@ -4,15 +4,8 @@
   "framework": "astro",
   "installCommand": "npm install",
   "functions": {
-    "dist/server/entry.mjs": {
+    "api/update-ranks.js": {
       "maxDuration": 30
     }
-  },
-  "env": {
-    "MYSQL_HOST": "@mysql_host",
-    "MYSQL_PORT": "@mysql_port", 
-    "MYSQL_USER": "@mysql_user",
-    "MYSQL_PASSWORD": "@mysql_password",
-    "MYSQL_DATABASE": "@mysql_database"
   }
 }

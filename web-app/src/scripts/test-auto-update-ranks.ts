@@ -32,7 +32,7 @@ async function testAutoUpdateRanks() {
       
       // Get all threads in this channel, ordered by created_at DESC (newest first)
       const [threads] = await pool.execute(`
-        SELECT id, title, rank, created_at 
+        SELECT id, title, thread_rank, created_at 
         FROM threads 
         WHERE channel_id = ? 
         ORDER BY created_at DESC
@@ -47,34 +47,34 @@ async function testAutoUpdateRanks() {
       }
       
       // Update ranks based on index (newest thread gets rank 1, oldest gets highest rank)
-      console.log('🔄 Updating ranks based on created_at order (newest first):');
+      console.log('🔄 Updating thread_ranks based on created_at order (newest first):');
       for (let i = 0; i < channelThreads.length; i++) {
         const thread = channelThreads[i];
         const newRank = i + 1; // 1, 2, 3, ...
         
         await pool.execute(`
           UPDATE threads 
-          SET rank = ?, updated_at = NOW()
+          SET thread_rank = ?, updated_at = NOW()
           WHERE id = ?
         `, [newRank, thread.id]);
         
-        console.log(`  ${i + 1}. "${thread.title}" - Rank: ${thread.rank} → ${newRank} (Created: ${thread.created_at})`);
+        console.log(`  ${i + 1}. "${thread.title}" - Thread Rank: ${thread.thread_rank} → ${newRank} (Created: ${thread.created_at})`);
       }
       
-      console.log(`✅ Updated ranks for ${channelThreads.length} threads in channel ${channel.name}`);
+      console.log(`✅ Updated thread_ranks for ${channelThreads.length} threads in channel ${channel.name}`);
     }
     
-    console.log('\n🎉 All ranks updated successfully!');
+    console.log('\n🎉 All thread_ranks updated successfully!');
     
     // Verify the results
     console.log('\n🔍 Verifying results...');
     const [verificationResult] = await pool.execute(`
       SELECT 
         COUNT(*) as total_threads,
-        COUNT(CASE WHEN rank = 0 OR rank IS NULL THEN 1 END) as threads_without_rank,
-        COUNT(CASE WHEN rank > 0 THEN 1 END) as threads_with_rank,
-        MIN(rank) as min_rank,
-        MAX(rank) as max_rank
+        COUNT(CASE WHEN thread_rank = 0 OR thread_rank IS NULL THEN 1 END) as threads_without_rank,
+        COUNT(CASE WHEN thread_rank > 0 THEN 1 END) as threads_with_rank,
+        MIN(thread_rank) as min_rank,
+        MAX(thread_rank) as max_rank
       FROM threads
     `);
     
