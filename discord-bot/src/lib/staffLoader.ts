@@ -18,6 +18,13 @@ export async function loadStaffFromCSV(csvPath: string): Promise<void> {
         return;
     }
 
+    // Check if the path is a directory instead of a file
+    const stats = fs.statSync(csvPath);
+    if (stats.isDirectory()) {
+        logger.warn({ csvPath }, 'Staff CSV path is a directory, skipping staff load');
+        return;
+    }
+
     const records: StaffRecord[] = [];
 
     return new Promise((resolve, reject) => {

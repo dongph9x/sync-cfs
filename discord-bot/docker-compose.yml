@@ -6,9 +6,11 @@ services:
     container_name: discord-forum-bot
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3008:3008"
     environment:
       - NODE_ENV=production
+      - STAFF_CSV_PATH=/app/staff.csv
+      - PORT=${PORT}
     env_file:
       - .env
     depends_on:
@@ -36,6 +38,15 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      RUN_MODE: watch
+      EXIT_AFTER_SYNC: false
+      REGISTER_COMMANDS: false
+      ENABLE_HISTORICAL_SYNC: ${ENABLE_HISTORICAL_SYNC}
+      FORCE_FULL_SYNC: ${FORCE_FULL_SYNC}
+      SYNC_GUILD_ID: ${SYNC_GUILD_ID}
+      SYNC_CHANNEL_ID: ${SYNC_CHANNEL_ID}
+      SYNC_LIMIT: 1
+      SYNC_SKIP_EXISTING: true
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
