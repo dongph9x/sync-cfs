@@ -62,6 +62,7 @@ export const GET: APIRoute = async ({ params, request, cookies }) => {
         slug: thread.slug,
         channel_id: thread.channel_id,
         reply_count: thread.reply_count,
+        published: Boolean(thread.published),
         created_at: thread.created_at,
         updated_at: thread.updated_at
       }

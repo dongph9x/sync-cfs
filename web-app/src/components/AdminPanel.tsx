@@ -7,6 +7,7 @@ interface Thread {
   author_alias: string;
   reply_count: number;
   thread_rank: number;
+  published: boolean;
   created_at: string;
   body_html?: string;
   slug?: string;
@@ -28,7 +29,7 @@ interface AdminPanelProps {
 
 export default function AdminPanel({ 
   channels, 
-  channelThreads, 
+  channelThreads: initialChannelThreads, 
   itemsPerPage = 20 
 }: AdminPanelProps) {
   const [currentChannelIndex, setCurrentChannelIndex] = useState(0);
@@ -50,6 +51,7 @@ export default function AdminPanel({
 
   const editorRef = useRef<any>(null);
   const [editorKey, setEditorKey] = useState(0); // Key để force re-render editor
+  const [channelThreads, setChannelThreads] = useState(initialChannelThreads);
 
   const currentChannelData = channelThreads[currentChannelIndex];
   const totalThreads = currentChannelData?.threads?.length || 0;
@@ -170,6 +172,41 @@ export default function AdminPanel({
   const handleCloseViewModal = () => {
     setIsViewModalOpen(false);
     setViewingThread(null);
+  };
+
+  const handleTogglePublished = async (threadId: string, published: boolean) => {
+    try {
+      const response = await fetch('/api/admin/thread/toggle-published', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ threadId, published }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update the thread in the current list
+        const updatedChannelThreads = channelThreads.map(channelData => ({
+          ...channelData,
+          threads: channelData.threads.map(thread => 
+            thread.id === threadId 
+              ? { ...thread, published } 
+              : thread
+          )
+        }));
+        
+        // Update state
+        setChannelThreads(updatedChannelThreads);
+        alert(data.message);
+      } else {
+        alert('Lỗi: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Có lỗi xảy ra khi cập nhật trạng thái thread');
+    }
   };
 
   const handleChangePassword = () => {
@@ -343,6 +380,13 @@ export default function AdminPanel({
                           <span>Replies: {thread.reply_count}</span>
                           <span>Rank: {thread.thread_rank}</span>
                           <span>Tạo: {new Date(thread.created_at).toLocaleDateString('vi-VN')}</span>
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            thread.published 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {thread.published ? 'Đã xuất bản' : 'Chưa xuất bản'}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -357,6 +401,16 @@ export default function AdminPanel({
                           className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         >
                           Xem
+                        </button>
+                        <button
+                          onClick={() => handleTogglePublished(thread.id, !thread.published)}
+                          className={`inline-flex items-center px-3 py-1 border text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                            thread.published
+                              ? 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100 focus:ring-red-500'
+                              : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100 focus:ring-green-500'
+                          }`}
+                        >
+                          {thread.published ? 'Ẩn' : 'Hiện'}
                         </button>
                       </div>
                     </div>

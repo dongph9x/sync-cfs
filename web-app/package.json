@@ -20,7 +20,13 @@
         "update-ranks": "tsx src/scripts/update-ranks-after-sync.ts",
         "smart-sync-with-ranks": "tsx src/scripts/smart-sync-with-ranks.ts",
         "test-auto-update-ranks": "tsx src/scripts/test-auto-update-ranks.ts",
-        "setup-auth": "tsx src/scripts/setup-auth.ts"
+        "setup-auth": "tsx src/scripts/setup-auth.ts",
+    "add-published": "tsx src/scripts/add-published-field.ts",
+    "debug-threads": "tsx src/scripts/debug-threads.ts",
+    "test-toggle": "tsx src/scripts/test-toggle-published.ts",
+    "test-api-toggle": "tsx src/scripts/test-api-toggle.ts",
+    "check-schema": "tsx src/scripts/check-schema.ts",
+    "test-update-check": "tsx src/scripts/test-update-and-check.ts"
     },
     "dependencies": {
         "@astrojs/react": "^4.3.0",

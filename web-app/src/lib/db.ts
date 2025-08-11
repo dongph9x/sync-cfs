@@ -72,6 +72,7 @@ export interface Thread {
   tags: string[];
   reply_count: number;
   thread_rank: number;
+  published: boolean;
   created_at: Date;
   updated_at: Date;
   channel_name?: string;
@@ -132,8 +133,9 @@ export async function getChannelById(id: string): Promise<Channel | null> {
   };
 }
 
-export async function getThreadsByChannelId(channelId: string): Promise<Thread[]> {
+export async function getThreadsByChannelId(channelId: string, includeUnpublished: boolean = false): Promise<Thread[]> {
   const pool = getPool();
+  const whereClause = includeUnpublished ? 'WHERE t.channel_id = ?' : 'WHERE t.channel_id = ? AND t.published = TRUE';
 
   const [rows] = await pool.execute(`
     SELECT 
@@ -142,7 +144,7 @@ export async function getThreadsByChannelId(channelId: string): Promise<Thread[]
       c.slug as channel_slug
     FROM threads t
     JOIN channels c ON t.channel_id = c.id
-    WHERE t.channel_id = ?
+    ${whereClause}
     ORDER BY t.thread_rank ASC, t.created_at ASC
   `, [channelId]);
 
@@ -151,6 +153,7 @@ export async function getThreadsByChannelId(channelId: string): Promise<Thread[]
     id: String(row.id),
     channel_id: String(row.channel_id),
     thread_rank: parseInt(row.thread_rank) || 0,
+    published: row.published === 1 || row.published === true,
     tags: row.tags ? (() => {
       try {
         return JSON.parse(row.tags);
@@ -184,6 +187,7 @@ export async function getThreadById(threadId: string, channelId: string): Promis
     id: String(row.id),
     channel_id: String(row.channel_id),
     thread_rank: parseInt(row.thread_rank) || 0,
+    published: row.published === 1 || row.published === true,
     tags: row.tags ? (() => {
       try {
         return JSON.parse(row.tags);
@@ -225,7 +229,7 @@ export async function getChannelBySlug(slug: string): Promise<Channel | null> {
   return getChannelById(String(channelId));
 }
 
-export async function getThreadsByChannelSlug(channelSlug: string): Promise<Thread[]> {
+export async function getThreadsByChannelSlug(channelSlug: string, includeUnpublished: boolean = false): Promise<Thread[]> {
   const pool = getPool();
 
   // First get channel ID by slug
@@ -236,7 +240,7 @@ export async function getThreadsByChannelSlug(channelSlug: string): Promise<Thre
   if ((channelRows as any[]).length === 0) return [];
 
   const channelId = (channelRows as any[])[0].id;
-  return getThreadsByChannelId(String(channelId));
+  return getThreadsByChannelId(String(channelId), includeUnpublished);
 }
 
 export async function getThreadBySlug(channelSlug: string, threadSlug: string): Promise<Thread | null> {

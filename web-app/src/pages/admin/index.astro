@@ -21,7 +21,7 @@ createPool({
 const channels = await getAllChannels();
 const channelThreads = await Promise.all(
   channels.map(async (channel) => {
-    const threads = await getThreadsByChannelId(channel.id);
+    const threads = await getThreadsByChannelId(channel.id, true); // Include unpublished threads
     return { channel, threads };
   })
 );
