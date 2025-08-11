@@ -262,7 +262,7 @@ export default function AdminPanel({
 
   return (
     <div className="admin-panel-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
+      <div className="mb-2">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Quản Trị Hệ Thống</h1>
