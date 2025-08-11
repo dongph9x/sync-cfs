@@ -171,7 +171,7 @@ export default function TreeView({
   const [isClient, setIsClient] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'rank' | 'title' | 'created_at' | 'reply_count'>('rank');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);

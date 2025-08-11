@@ -96,7 +96,7 @@ export async function getAllChannels(): Promise<Channel[]> {
   const [rows] = await pool.execute(`
     SELECT 
       c.*,
-      COUNT(t.id) as thread_count
+      COUNT(CASE WHEN t.published = TRUE THEN t.id END) as thread_count
     FROM channels c
     LEFT JOIN threads t ON c.id = t.channel_id
     GROUP BY c.id
@@ -115,7 +115,7 @@ export async function getChannelById(id: string): Promise<Channel | null> {
   const [rows] = await pool.execute(`
     SELECT 
       c.*,
-      COUNT(t.id) as thread_count
+      COUNT(CASE WHEN t.published = TRUE THEN t.id END) as thread_count
     FROM channels c
     LEFT JOIN threads t ON c.id = t.channel_id
     WHERE c.id = ?
@@ -145,7 +145,7 @@ export async function getThreadsByChannelId(channelId: string, includeUnpublishe
     FROM threads t
     JOIN channels c ON t.channel_id = c.id
     ${whereClause}
-    ORDER BY t.thread_rank ASC, t.created_at ASC
+    ORDER BY t.thread_rank DESC
   `, [channelId]);
 
   return (rows as any[]).map(row => ({
