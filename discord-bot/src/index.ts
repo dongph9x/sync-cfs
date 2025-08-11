@@ -10,6 +10,7 @@ import { CommandHandler } from './lib/commandHandler';
 import { smartSync } from './lib/smartSync';
 import { getPool } from './lib/db';
 import mysql from 'mysql2/promise';
+import { startScheduledWorker } from './lib/worker';
 
 const logger = createLogger('main');
 
@@ -187,6 +188,12 @@ async function main() {
                     await updateRanksAfterSync(); // Call the new function here
 
                     logger.info('Smart sync completed successfully');
+
+                    // Start scheduled worker in watch mode
+                    if (runMode === 'watch' && process.env.ENABLE_SCHEDULED_SYNC === 'true') {
+                        logger.info('Starting scheduled worker for automatic sync...');
+                        startScheduledWorker(client);
+                    }
 
                     // Exit after sync if in one-time mode or explicitly configured
                     if (runMode === 'once' || exitAfterSync) {

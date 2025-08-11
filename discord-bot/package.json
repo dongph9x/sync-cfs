@@ -17,6 +17,7 @@
         "exact-web-app-logic": "ts-node src/scripts/exact-web-app-logic.ts",
         "debug-channel-match": "ts-node src/scripts/debug-channel-match.ts",
         "test-web-app-connection": "ts-node src/scripts/test-web-app-connection.ts",
+        "test-worker": "ts-node src/scripts/test-worker.ts",
         "vercel-build": "npm run build",
         "test-api": "node test-api.js"
     },
