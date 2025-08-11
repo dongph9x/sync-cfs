@@ -35,6 +35,7 @@ export default function AdminPanel({
   const [currentPage, setCurrentPage] = useState(1);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [editingThread, setEditingThread] = useState<Thread | null>(null);
   const [viewingThread, setViewingThread] = useState<Thread | null>(null);
   const [editForm, setEditForm] = useState({
@@ -170,11 +171,66 @@ export default function AdminPanel({
     setViewingThread(null);
   };
 
+  const handleChangePassword = () => {
+    setIsChangePasswordModalOpen(true);
+  };
+
+  const handleCloseChangePasswordModal = () => {
+    setIsChangePasswordModalOpen(false);
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const currentPassword = formData.get('currentPassword') as string;
+    const newPassword = formData.get('newPassword') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+
+    try {
+      const response = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('Đổi mật khẩu thành công!');
+        handleCloseChangePasswordModal();
+        // Reset form
+        (e.target as HTMLFormElement).reset();
+      } else {
+        alert('Lỗi: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Có lỗi xảy ra khi đổi mật khẩu');
+    }
+  };
+
   return (
     <div className="admin-panel-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Quản Trị Hệ Thống</h1>
-        <p className="mt-2 text-gray-600">Quản lý và chỉnh sửa threads trong các kênh</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Quản Trị Hệ Thống</h1>
+            <p className="mt-2 text-gray-600">Quản lý và chỉnh sửa threads trong các kênh</p>
+          </div>
+          <button
+            onClick={handleChangePassword}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            Đổi mật khẩu
+          </button>
+        </div>
       </div>
 
       {/* Channel Tabs */}
@@ -468,6 +524,78 @@ export default function AdminPanel({
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {isChangePasswordModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 lg:w-1/3 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Đổi mật khẩu</h3>
+                <button
+                  onClick={handleCloseChangePasswordModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Mật khẩu hiện tại</label>
+                  <input
+                    type="password"
+                    name="currentPassword"
+                    required
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Mật khẩu mới</label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    required
+                    minLength={6}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">Tối thiểu 6 ký tự</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Xác nhận mật khẩu mới</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    required
+                    minLength={6}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleCloseChangePasswordModal}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    Đổi mật khẩu
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
