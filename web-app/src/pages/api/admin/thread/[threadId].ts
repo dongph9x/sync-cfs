@@ -5,8 +5,8 @@ import { createPool } from '../../../../lib/db';
 
 export const GET: APIRoute = async ({ params, request, cookies }) => {
   try {
-    // Require admin role
-    await requireRole({ request, cookies } as any, ['admin', 'moderator']);
+    // Require admin, moderator, or editor role
+    await requireRole({ request, cookies } as any, ['admin', 'moderator', 'editor']);
 
     // Initialize database
     createPool({

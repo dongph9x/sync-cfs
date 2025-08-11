@@ -36,6 +36,7 @@ export default function AdminPanel({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [editingThread, setEditingThread] = useState<Thread | null>(null);
   const [viewingThread, setViewingThread] = useState<Thread | null>(null);
   const [editForm, setEditForm] = useState({
@@ -216,6 +217,49 @@ export default function AdminPanel({
     }
   };
 
+  const handleCreateUser = () => {
+    setIsCreateUserModalOpen(true);
+  };
+
+  const handleCloseCreateUserModal = () => {
+    setIsCreateUserModalOpen(false);
+  };
+
+  const handleCreateUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const username = formData.get('username') as string;
+    const role = formData.get('role') as string;
+
+    try {
+      const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          role
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(data.message);
+        handleCloseCreateUserModal();
+        // Reset form
+        (e.target as HTMLFormElement).reset();
+      } else {
+        alert('Lỗi: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Có lỗi xảy ra khi tạo user');
+    }
+  };
+
   return (
     <div className="admin-panel-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -224,12 +268,20 @@ export default function AdminPanel({
             <h1 className="text-3xl font-bold text-gray-900">Quản Trị Hệ Thống</h1>
             <p className="mt-2 text-gray-600">Quản lý và chỉnh sửa threads trong các kênh</p>
           </div>
-          <button
-            onClick={handleChangePassword}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-          >
-            Đổi mật khẩu
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={handleCreateUser}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Tạo User
+            </button>
+            <button
+              onClick={handleChangePassword}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              Đổi mật khẩu
+            </button>
+          </div>
         </div>
       </div>
 
@@ -593,6 +645,83 @@ export default function AdminPanel({
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                   >
                     Đổi mật khẩu
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create User Modal */}
+      {isCreateUserModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 lg:w-1/3 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Tạo User Mới</h3>
+                <button
+                  onClick={handleCloseCreateUserModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <form onSubmit={handleCreateUserSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Username</label>
+                  <input
+                    type="text"
+                    name="username"
+                    required
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">Email sẽ tự động tạo: username@gmail.com</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Role</label>
+                  <select
+                    name="role"
+                    required
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Chọn role</option>
+                    <option value="admin">Admin - Quản trị viên</option>
+                    <option value="editor">Editor - Biên tập viên</option>
+                    <option value="viewer">Viewer - Người xem</option>
+                  </select>
+                  <div className="mt-1 text-sm text-gray-500">
+                    <p><strong>Admin:</strong> Toàn quyền quản trị hệ thống</p>
+                    <p><strong>Editor:</strong> Chỉnh sửa threads và quản lý nội dung</p>
+                    <p><strong>Viewer:</strong> Chỉ xem và không có quyền chỉnh sửa</p>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 p-3 rounded-md">
+                  <p className="text-sm text-blue-800">
+                    <strong>Thông tin tự động:</strong>
+                  </p>
+                  <p className="text-sm text-blue-700">• Email: username@gmail.com</p>
+                  <p className="text-sm text-blue-700">• Mật khẩu: 112233</p>
+                </div>
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleCloseCreateUserModal}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Tạo User
                   </button>
                 </div>
               </form>

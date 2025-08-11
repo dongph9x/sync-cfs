@@ -4,8 +4,8 @@ import { createPool } from '../../../../lib/db';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
-    // Require admin role
-    await requireRole({ request, cookies } as any, ['admin', 'moderator']);
+    // Require admin, moderator, or editor role
+    await requireRole({ request, cookies } as any, ['admin', 'moderator', 'editor']);
 
     // Initialize database
     createPool({
@@ -44,7 +44,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         thread_rank = ?,
         updated_at = NOW()
       WHERE id = ?
-    `, [title, author, content || null, rank || 1, threadId]);
+    `, [title, author, content || null, rank || 1, parseInt(threadId)]);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
@@ -53,7 +53,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   } catch (error) {
     console.error('Error updating thread:', error);
-    return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), {
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
