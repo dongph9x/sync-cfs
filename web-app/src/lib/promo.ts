@@ -12,8 +12,8 @@ export function shouldShowBanner(pageIndex: number, config: BannerConfig): boole
 }
 
 export function getBannerConfig(): BannerConfig {
-    const everyN = parseInt(process.env.BANNER_EVERY_N || '4');
-    const inviteUrl = process.env.DISCORD_INVITE_URL || 'https://discord.gg/your-invite-code';
+    const everyN = parseInt(import.meta.env.BANNER_EVERY_N || '4');
+    const inviteUrl = import.meta.env.DISCORD_INVITE_URL || 'https://discord.gg/your-invite-code';
 
     return {
         everyNPages: everyN,

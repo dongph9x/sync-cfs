@@ -1,0 +1,61 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { requireRole } from '../../lib/session';
+import { createPool } from '../../lib/db';
+
+// Require admin role
+await requireRole(Astro, ['admin', 'moderator']);
+
+// Initialize database
+createPool({
+  host: import.meta.env.MYSQL_HOST || 'localhost',
+  port: parseInt(import.meta.env.MYSQL_PORT || '3306'),
+  user: import.meta.env.MYSQL_USER || 'root',
+  password: import.meta.env.MYSQL_PASSWORD || '',
+  database: import.meta.env.MYSQL_DATABASE || 'forum'
+});
+
+// Simple test query
+const pool = createPool({
+  host: import.meta.env.MYSQL_HOST || 'localhost',
+  port: parseInt(import.meta.env.MYSQL_PORT || '3306'),
+  user: import.meta.env.MYSQL_USER || 'root',
+  password: import.meta.env.MYSQL_PASSWORD || '',
+  database: import.meta.env.MYSQL_DATABASE || 'forum'
+});
+
+const [channels] = await pool.execute('SELECT COUNT(*) as count FROM channels');
+const [threads] = await pool.execute('SELECT COUNT(*) as count FROM threads');
+
+const channelCount = (channels as any[])[0]?.count || 0;
+const threadCount = (threads as any[])[0]?.count || 0;
+---
+
+<Layout title="Admin Test - Ani Nhi Confessions">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">Admin Test Page</h1>
+      <p class="mt-2 text-gray-600">Testing admin access and database connection</p>
+    </div>
+
+    <div class="bg-white shadow rounded-lg p-6">
+      <h2 class="text-xl font-semibold mb-4">Database Statistics</h2>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-blue-50 p-4 rounded-lg">
+          <p class="text-sm text-blue-600">Channels</p>
+          <p class="text-2xl font-bold text-blue-900">{channelCount}</p>
+        </div>
+        <div class="bg-green-50 p-4 rounded-lg">
+          <p class="text-sm text-green-600">Threads</p>
+          <p class="text-2xl font-bold text-green-900">{threadCount}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <a href="/admin" class="text-blue-600 hover:text-blue-800">
+        ← Quay lại trang Admin chính
+      </a>
+    </div>
+  </div>
+</Layout>

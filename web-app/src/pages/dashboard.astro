@@ -1,0 +1,150 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { requireAuth } from '../lib/session';
+
+// Require authentication
+const user = await requireAuth(Astro);
+
+const seo = {
+  title: 'Dashboard - Discord Forum',
+  description: 'Quản lý tài khoản và xem thống kê của bạn',
+  image: '/og-image.jpg',
+};
+---
+
+<Layout seo={seo}>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+      <p class="text-lg text-gray-600 mt-2">Chào mừng bạn trở lại, {user.username}!</p>
+    </div>
+
+    <!-- User Profile Card -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+      <div class="flex items-center space-x-4">
+        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+          <span class="text-2xl font-bold text-blue-600">
+            {user.username.substring(0, 2).toUpperCase()}
+          </span>
+        </div>
+        
+        <div class="flex-1">
+          <h2 class="text-xl font-semibold text-gray-900">{user.username}</h2>
+          <p class="text-gray-600">{user.email}</p>
+          <div class="flex items-center space-x-2 mt-2">
+            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+              {user.role === 'admin' && 'Admin'}
+              {user.role === 'moderator' && 'Moderator'}
+              {user.role === 'user' && 'User'}
+            </span>
+          </div>
+        </div>
+
+        <div class="text-right">
+          <p class="text-sm text-gray-600">Thành viên từ</p>
+          <p class="text-sm font-medium text-gray-900">
+            {new Date(user.created_at).toLocaleDateString('vi-VN')}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+          <div class="ml-4">
+            <h3 class="text-lg font-medium text-gray-900">Xem Confessions</h3>
+            <p class="text-sm text-gray-600">Khám phá các confessions mới nhất</p>
+          </div>
+        </div>
+        <div class="mt-4">
+          <a href="/confessions" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            Xem ngay →
+          </a>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <div class="ml-4">
+            <h3 class="text-lg font-medium text-gray-900">Tìm kiếm</h3>
+            <p class="text-sm text-gray-600">Tìm kiếm trong các threads</p>
+          </div>
+        </div>
+        <div class="mt-4">
+          <a href="/search" class="text-green-600 hover:text-green-800 text-sm font-medium">
+            Tìm kiếm →
+          </a>
+        </div>
+      </div>
+
+      {user.role === 'admin' && (
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div class="ml-4">
+              <h3 class="text-lg font-medium text-gray-900">Quản trị</h3>
+              <p class="text-sm text-gray-600">Quản lý hệ thống</p>
+            </div>
+          </div>
+          <div class="mt-4">
+            <a href="/admin" class="text-red-600 hover:text-red-800 text-sm font-medium">
+              Truy cập →
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+
+    <!-- Account Actions -->
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Tài khoản</h3>
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-900">Email</p>
+            <p class="text-sm text-gray-600">{user.email}</p>
+          </div>
+        </div>
+        
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-900">Đăng nhập lần cuối</p>
+            <p class="text-sm text-gray-600">
+              {user.last_login ? new Date(user.last_login).toLocaleString('vi-VN') : 'Chưa có'}
+            </p>
+          </div>
+        </div>
+
+        <div class="border-t pt-4">
+          <a 
+            href="/api/auth/logout" 
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Đăng xuất
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

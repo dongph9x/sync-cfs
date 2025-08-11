@@ -85,7 +85,7 @@ const structuredData = generateStructuredData({
 
             <div class="space-y-4">
                 {threads.length > 0 ? (
-                    <TreeView client:only="react" items={treeItems} channelSlug="confessions" />
+                    <TreeView client:only="react" items={treeItems} channelSlug="confessions" itemsPerPage={20} />
                 ) : (
                     <div class="text-center py-12">
                         <p class="text-gray-500 text-lg">Chưa có confessions nào được đăng.</p>

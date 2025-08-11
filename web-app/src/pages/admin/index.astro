@@ -1,0 +1,37 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { requireRole } from '../../lib/session';
+import { getAllChannels, getThreadsByChannelId } from '../../lib/db';
+import { createPool } from '../../lib/db';
+import AdminPanel from '../../components/AdminPanel';
+
+// Require admin role
+await requireRole(Astro, ['admin', 'moderator']);
+
+// Initialize database
+createPool({
+  host: import.meta.env.MYSQL_HOST || 'localhost',
+  port: parseInt(import.meta.env.MYSQL_PORT || '3306'),
+  user: import.meta.env.MYSQL_USER || 'root',
+  password: import.meta.env.MYSQL_PASSWORD || '',
+  database: import.meta.env.MYSQL_DATABASE || 'forum'
+});
+
+// Get all channels and their threads
+const channels = await getAllChannels();
+const channelThreads = await Promise.all(
+  channels.map(async (channel) => {
+    const threads = await getThreadsByChannelId(channel.id);
+    return { channel, threads };
+  })
+);
+---
+
+<Layout title="Quản Trị - Ani Nhi Confessions">
+  <AdminPanel 
+    client:load
+    channels={channels}
+    channelThreads={channelThreads}
+    itemsPerPage={20}
+  />
+</Layout>

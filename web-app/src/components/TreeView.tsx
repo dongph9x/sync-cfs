@@ -34,6 +34,7 @@ interface TreeViewProps {
   items?: TreeItem[];
   onItemsReorder?: (items: TreeItem[]) => void;
   channelSlug?: string;
+  itemsPerPage?: number;
 }
 
 interface SortableItemProps {
@@ -163,7 +164,8 @@ function SortableItem({ item, index, onThreadClick }: SortableItemProps) {
 export default function TreeView({ 
   items = [], 
   onItemsReorder = () => {}, 
-  channelSlug = '' 
+  channelSlug = '',
+  itemsPerPage = 10
 }: TreeViewProps) {
   const [treeItems, setTreeItems] = useState<TreeItem[]>(items);
   const [isClient, setIsClient] = useState(false);
@@ -172,6 +174,7 @@ export default function TreeView({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleThreadClick = (thread: Thread) => {
     setSelectedThread(thread);
@@ -196,6 +199,7 @@ export default function TreeView({
 
   useEffect(() => {
     setTreeItems(items);
+    setCurrentPage(1); // Reset to first page when items change
   }, [items]);
 
   // Filter and sort items in one useMemo to ensure proper updates
@@ -254,6 +258,24 @@ export default function TreeView({
 
     return sorted;
   }, [treeItems, searchTerm, sortBy, sortOrder]);
+
+  // Pagination logic
+  const totalItems = filteredAndSortedItems.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredAndSortedItems.slice(startIndex, endIndex);
+
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortBy, sortOrder]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to TreeView component when page changes
+    document.querySelector('.treeview-container')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -331,7 +353,7 @@ export default function TreeView({
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="treeview-container max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Search and Filter Controls */}
       <div className="mb-6 space-y-4">
         {/* Search Box */}
@@ -393,8 +415,9 @@ export default function TreeView({
       {/* Results Info */}
       <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg">
         <p className="text-sm">
-          ✅ Hiển thị {filteredAndSortedItems.length} / {treeItems.length} threads
+          ✅ Hiển thị {currentItems.length} / {filteredAndSortedItems.length} / {treeItems.length} threads
           {searchTerm && ` (tìm kiếm: "${searchTerm}")`}
+          {totalPages > 1 && ` • Trang ${currentPage} / ${totalPages}`}
         </p>
         <p className="text-xs mt-1">
           🖱️ Kéo icon ở góc trái để sắp xếp lại • 🖱️ Click để xem chi tiết
@@ -415,14 +438,81 @@ export default function TreeView({
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={filteredAndSortedItems.map(item => item.id)}
+          items={currentItems.map(item => item.id)}
           strategy={verticalListSortingStrategy}
         >
-          {filteredAndSortedItems.map((item, index) => (
+          {currentItems.map((item, index) => (
             <SortableItem key={item.id} item={item} index={index} onThreadClick={handleThreadClick} />
           ))}
         </SortableContext>
       </DndContext>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-8 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 pt-6 border-t border-gray-200">
+          {/* Results info */}
+          <div className="text-sm text-gray-600">
+            Hiển thị {startIndex + 1}-{Math.min(endIndex, totalItems)} trong tổng số {totalItems} threads
+          </div>
+          
+          {/* Pagination controls */}
+          <nav className="flex items-center space-x-1" aria-label="Pagination">
+            {/* Previous button */}
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                currentPage === 1
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              ← Trước
+            </button>
+
+            {/* Page numbers */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    currentPage === pageNum
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+
+            {/* Next button */}
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-2 text-sm font-medium rounded-md ${
+                currentPage === totalPages
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              Sau →
+            </button>
+          </nav>
+        </div>
+      )}
 
       {/* Thread Modal */}
       <ThreadModal

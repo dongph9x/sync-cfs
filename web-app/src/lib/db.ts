@@ -37,6 +37,20 @@ export function getPool(): mysql.Pool {
   return pool;
 }
 
+// Generic query functions
+export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  const pool = getPool();
+  const [rows] = await pool.execute(sql, params);
+  return rows as T[];
+}
+
+export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T | null> {
+  const pool = getPool();
+  const [rows] = await pool.execute(sql, params);
+  const results = rows as T[];
+  return results.length > 0 ? results[0] : null;
+}
+
 // Types for database records
 export interface Channel {
   id: string;

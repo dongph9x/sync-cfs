@@ -181,7 +181,7 @@ const breadcrumbSchema = generateStructuredData({
 
             <div class="space-y-4">
                 {threads.length > 0 ? (
-                    <TreeView client:only="react" items={treeItems} channelSlug={channelSlug as string} />
+                    <TreeView client:only="react" items={treeItems} channelSlug={channelSlug as string} itemsPerPage={15} />
                 ) : (
                     <div class="text-center py-12">
                         <p class="text-gray-500 text-lg">Chưa có threads nào trong kênh này.</p>

@@ -7,23 +7,36 @@ import {
     generateBannerScript,
 } from "../lib/promo";
 import { generateStructuredData, type SEOData } from "../lib/seo";
+import { getSessionUser } from "../lib/session";
 
 interface Props {
-    seo: SEOData;
+    seo?: SEOData;
     showBanner?: boolean;
     pageIndex?: number;
 }
 
-const { seo, showBanner = false, pageIndex = 0 } = Astro.props;
+const { seo: seoProp, showBanner = false, pageIndex = 0 } = Astro.props;
+
+// Provide default SEO data if not provided
+const seo = seoProp || {
+    title: "Ani Nhi Confessions",
+    description: "Diễn đàn cộng đồng Ani Nhi Confessions",
+    keywords: ["discord", "diễn đàn", "cộng đồng", "thảo luận"],
+    canonical: Astro.url.toString(),
+    ogType: "website"
+};
 const bannerConfig = getBannerConfig();
 const shouldDisplayBanner =
     showBanner || shouldShowBanner(pageIndex, bannerConfig);
+
+// Get current user
+const user = await getSessionUser(Astro);
 
 const websiteSchema = generateStructuredData({
     type: "WebSite",
     name: "Ani Nhi Confessions",
     url: Astro.site?.toString(),
-    description: seo.description,
+    description: seo.description || "Diễn đàn cộng đồng Ani Nhi Confessions",
 });
 ---
 
@@ -31,7 +44,7 @@ const websiteSchema = generateStructuredData({
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <meta name="description" content={seo.description} />
+        <meta name="description" content={seo.description || "Diễn đàn cộng đồng Ani Nhi Confessions"} />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="icon" type="image/svg+xml" href="/favicon.png" />
         <meta name="generator" content={Astro.generator} />
@@ -47,7 +60,7 @@ const websiteSchema = generateStructuredData({
 
         <!-- Open Graph -->
         <meta property="og:title" content={seo.title} />
-        <meta property="og:description" content={seo.description} />
+        <meta property="og:description" content={seo.description || "Diễn đàn cộng đồng Ani Nhi Confessions"} />
         <meta property="og:type" content={seo.ogType || "website"} />
         <meta
             property="og:url"
@@ -58,7 +71,7 @@ const websiteSchema = generateStructuredData({
         <!-- Twitter Card -->
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:title" content={seo.title} />
-        <meta name="twitter:description" content={seo.description} />
+        <meta name="twitter:description" content={seo.description || "Diễn đàn cộng đồng Ani Nhi Confessions"} />
         {seo.ogImage && <meta name="twitter:image" content={seo.ogImage} />}
 
         <!-- JSON-LD Structured Data -->
@@ -119,14 +132,54 @@ const websiteSchema = generateStructuredData({
                             </svg>
                             Tìm Kiếm
                         </a>
-                        <a
-                            href={bannerConfig.discordInviteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="btn-primary"
-                        >
-                            Tham Gia Discord
-                        </a>
+                        
+                        {user ? (
+                            <div class="flex items-center space-x-4">
+                                <a
+                                    href="/dashboard"
+                                    class="text-stack-gray-700 hover:text-stack-gray-900 transition-colors"
+                                >
+                                    Dashboard
+                                </a>
+                                {(user.role === 'admin' || user.role === 'moderator') && (
+                                    <a
+                                        href="/admin"
+                                        class="text-stack-gray-700 hover:text-stack-gray-900 transition-colors"
+                                    >
+                                        Quản Trị
+                                    </a>
+                                )}
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <span class="text-sm font-medium text-blue-600">
+                                            {user.username.substring(0, 2).toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900">{user.username}</span>
+                                </div>
+                                <a
+                                    href="/api/auth/logout"
+                                    class="text-red-600 hover:text-red-800 transition-colors"
+                                >
+                                    Đăng xuất
+                                </a>
+                            </div>
+                        ) : (
+                            <a
+                                href={bannerConfig.discordInviteUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="btn-primary"
+                            >
+                                Tham Gia Discord
+                            </a>
+                            <a
+                                href="/login"
+                                class="btn-primary"
+                            >
+                                Đăng nhập
+                            </a>
+                        )}
                     </nav>
                 </div>
             </div>
