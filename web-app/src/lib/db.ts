@@ -90,6 +90,21 @@ export interface Post {
   updated_at: Date;
 }
 
+export interface PodcastSchedule {
+  id: number;
+  title: string;
+  description: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface PodcastThread {
+  id: number;
+  podcast_schedule_id: number;
+  thread_id: string;
+  created_at: Date;
+}
+
 // Database query functions
 export async function getAllChannels(): Promise<Channel[]> {
   const pool = getPool();
@@ -452,4 +467,142 @@ export async function fixMissingRanks(): Promise<void> {
     console.error('❌ Error fixing missing ranks:', error);
     throw error;
   }
+}
+
+// Podcast Schedule functions
+export async function getAllPodcastSchedules(): Promise<PodcastSchedule[]> {
+  const pool = getPool();
+  const [rows] = await pool.execute(`
+    SELECT * FROM podcast_schedules 
+    ORDER BY created_at DESC
+  `);
+  
+  return (rows as any[]).map(row => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  }));
+}
+
+export async function getPodcastScheduleById(id: number): Promise<PodcastSchedule | null> {
+  const pool = getPool();
+  const [rows] = await pool.execute(`
+    SELECT * FROM podcast_schedules WHERE id = ?
+  `, [id]);
+  
+  if ((rows as any[]).length === 0) return null;
+  
+  const row = (rows as any[])[0];
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+}
+
+export async function createPodcastSchedule(title: string, description?: string): Promise<number> {
+  const pool = getPool();
+  const [result] = await pool.execute(`
+    INSERT INTO podcast_schedules (title, description) 
+    VALUES (?, ?)
+  `, [title, description || null]);
+  
+  return (result as any).insertId;
+}
+
+export async function updatePodcastSchedule(id: number, title: string, description?: string): Promise<void> {
+  const pool = getPool();
+  await pool.execute(`
+    UPDATE podcast_schedules 
+    SET title = ?, description = ?, updated_at = NOW()
+    WHERE id = ?
+  `, [title, description || null, id]);
+}
+
+export async function deletePodcastSchedule(id: number): Promise<void> {
+  const pool = getPool();
+  await pool.execute(`
+    DELETE FROM podcast_schedules WHERE id = ?
+  `, [id]);
+}
+
+// Podcast Thread functions
+export async function getThreadsByPodcastSchedule(podcastScheduleId: number): Promise<Thread[]> {
+  const pool = getPool();
+  const [rows] = await pool.execute(`
+    SELECT t.*, c.name as channel_name, c.slug as channel_slug
+    FROM threads t
+    JOIN channels c ON t.channel_id = c.id
+    JOIN podcast_threads pt ON t.id = pt.thread_id
+    WHERE pt.podcast_schedule_id = ? AND t.published = TRUE
+    ORDER BY t.created_at DESC
+  `, [podcastScheduleId]);
+  
+  return (rows as any[]).map(row => {
+    let tags: string[] = [];
+    if (row.tags) {
+      try {
+        tags = JSON.parse(row.tags);
+      } catch (error) {
+        console.warn(`Failed to parse tags JSON for thread ${row.id}:`, row.tags);
+        tags = [];
+      }
+    }
+    
+    return {
+      id: String(row.id),
+      channel_id: String(row.channel_id),
+      slug: row.slug,
+      title: row.title,
+      author_alias: row.author_alias,
+      body_html: row.body_html,
+      tags: tags,
+      reply_count: row.reply_count,
+      thread_rank: row.thread_rank,
+      published: row.published === 1 || row.published === true,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      channel_name: row.channel_name,
+      channel_slug: row.channel_slug
+    };
+  });
+}
+
+export async function addThreadToPodcastSchedule(podcastScheduleId: number, threadId: string): Promise<void> {
+  const pool = getPool();
+  await pool.execute(`
+    INSERT INTO podcast_threads (podcast_schedule_id, thread_id) 
+    VALUES (?, ?)
+  `, [podcastScheduleId, threadId]);
+}
+
+export async function removeThreadFromPodcastSchedule(podcastScheduleId: number, threadId: string): Promise<void> {
+  const pool = getPool();
+  await pool.execute(`
+    DELETE FROM podcast_threads 
+    WHERE podcast_schedule_id = ? AND thread_id = ?
+  `, [podcastScheduleId, threadId]);
+}
+
+export async function getPodcastSchedulesByThread(threadId: string): Promise<PodcastSchedule[]> {
+  const pool = getPool();
+  const [rows] = await pool.execute(`
+    SELECT ps.*
+    FROM podcast_schedules ps
+    JOIN podcast_threads pt ON ps.id = pt.podcast_schedule_id
+    WHERE pt.thread_id = ?
+    ORDER BY ps.created_at DESC
+  `, [threadId]);
+  
+  return (rows as any[]).map(row => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  }));
 }

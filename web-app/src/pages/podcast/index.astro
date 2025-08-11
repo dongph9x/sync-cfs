@@ -1,0 +1,481 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSessionUser } from '../../lib/session';
+import { getAllPodcastSchedules, getAllChannels, getThreadsByChannelId, getThreadsByPodcastSchedule } from '../../lib/db';
+
+// Get current user
+const user = await getSessionUser(Astro);
+
+// Get all podcast schedules with their threads
+const schedules = await getAllPodcastSchedules();
+const schedulesWithThreads = await Promise.all(
+  schedules.map(async (schedule) => {
+    const threads = await getThreadsByPodcastSchedule(schedule.id);
+    return { ...schedule, threads };
+  })
+);
+
+// Get all channels and their threads for selection (only for admin/editor)
+let channelThreads = [];
+if (user && (user.role === 'admin' || user.role === 'editor')) {
+  const channels = await getAllChannels();
+  channelThreads = await Promise.all(
+    channels.map(async (channel) => {
+      const threads = await getThreadsByChannelId(channel.id, false); // Only published threads
+      return { channel, threads };
+    })
+  );
+}
+---
+
+<Layout title="Podcast Schedules" seo={{ title: "Podcast Schedules", description: "Danh sách các tập podcast và threads liên quan" }}>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-4">🎙️ Podcast Schedules</h1>
+      <p class="text-gray-600">Danh sách các tập podcast và threads liên quan</p>
+    </div>
+
+    <!-- Admin Controls (only for admin/editor) -->
+    {user && (user.role === 'admin' || user.role === 'editor') && (
+      <div class="mb-6">
+        <button 
+          id="createScheduleBtn"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+        >
+          ➕ Tạo Podcast Schedule Mới
+        </button>
+      </div>
+    )}
+
+    <!-- Podcast Schedules List -->
+    {schedulesWithThreads.length === 0 ? (
+      <div class="text-center py-12">
+        <p class="text-gray-500 text-lg">Chưa có podcast schedule nào.</p>
+        {user && (user.role === 'admin' || user.role === 'editor') && (
+          <p class="text-gray-400 text-sm mt-2">Hãy tạo schedule đầu tiên!</p>
+        )}
+      </div>
+    ) : (
+      <div class="grid gap-8">
+        {schedulesWithThreads.map((schedule) => (
+          <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+            <div class="flex justify-between items-start mb-6">
+              <div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">{schedule.title}</h2>
+                {schedule.description && (
+                  <p class="text-gray-600 mb-3">{schedule.description}</p>
+                )}
+                <p class="text-sm text-gray-500">
+                  Tạo lúc: {new Date(schedule.created_at).toLocaleString('vi-VN')}
+                </p>
+              </div>
+              
+              <!-- Admin Controls -->
+              {user && (user.role === 'admin' || user.role === 'editor') && (
+                <div class="flex space-x-2">
+                  <button 
+                    class="edit-schedule-btn bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
+                    data-schedule-id={schedule.id}
+                    data-schedule-title={schedule.title}
+                    data-schedule-description={schedule.description || ''}
+                  >
+                    ✏️ Sửa
+                  </button>
+                  <button 
+                    class="manage-threads-btn bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                    data-schedule-id={schedule.id}
+                    data-schedule-title={schedule.title}
+                  >
+                    🔗 Quản lý Threads
+                  </button>
+                  <button 
+                    class="delete-schedule-btn bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                    data-schedule-id={schedule.id}
+                    data-schedule-title={schedule.title}
+                  >
+                    🗑️ Xóa
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <!-- Threads in this schedule -->
+            {schedule.threads.length > 0 ? (
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                  Threads trong tập này ({schedule.threads.length})
+                </h3>
+                <div class="grid gap-4">
+                  {schedule.threads.map((thread) => (
+                    <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                      <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                          <h4 class="text-lg font-medium text-gray-900 mb-2">
+                            <a 
+                              href={`/forum/${thread.channel_slug}/${thread.slug}`}
+                              class="hover:text-blue-600 transition-colors"
+                            >
+                              {thread.title}
+                            </a>
+                          </h4>
+                          <div class="flex items-center space-x-4 text-sm text-gray-500">
+                            <span>Tác giả: {thread.author_alias}</span>
+                            <span>{thread.reply_count} bình luận</span>
+                            <span>{new Date(thread.created_at).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                          {thread.tags && thread.tags.length > 0 && (
+                            <div class="flex space-x-1 mt-2">
+                              {thread.tags.map((tag, index) => (
+                                <span
+                                  key={index}
+                                  class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <a 
+                          href={`/forum/${thread.channel_slug}/${thread.slug}`}
+                          class="ml-4 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                        >
+                          Xem chi tiết
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div class="text-center py-8">
+                <p class="text-gray-500">Chưa có threads nào trong tập này.</p>
+                {user && (user.role === 'admin' || user.role === 'editor') && (
+                  <p class="text-gray-400 text-sm mt-2">Hãy thêm threads vào tập này!</p>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+  <!-- Create/Edit Schedule Modal -->
+  <div id="scheduleModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 id="modalTitle" class="text-xl font-semibold mb-4">Tạo Podcast Schedule</h3>
+        
+        <form id="scheduleForm">
+          <input type="hidden" id="scheduleId" />
+          
+          <div class="mb-4">
+            <label for="scheduleTitle" class="block text-sm font-medium text-gray-700 mb-2">
+              Tiêu đề *
+            </label>
+            <input 
+              type="text" 
+              id="scheduleTitle" 
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div class="mb-6">
+            <label for="scheduleDescription" class="block text-sm font-medium text-gray-700 mb-2">
+              Mô tả
+            </label>
+            <textarea 
+              id="scheduleDescription" 
+              rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            ></textarea>
+          </div>
+          
+          <div class="flex justify-end space-x-3">
+            <button 
+              type="button" 
+              id="cancelScheduleBtn"
+              class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Hủy
+            </button>
+            <button 
+              type="submit"
+              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Lưu
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Threads Modal -->
+  <div id="threadsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="bg-white rounded-lg max-w-4xl w-full max-h-[140vh] overflow-hidden">
+        <div class="p-6 border-b border-gray-200">
+          <h3 id="threadsModalTitle" class="text-xl font-semibold">Quản lý Threads</h3>
+        </div>
+        
+        <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <div class="mb-4">
+            <input 
+              type="text" 
+              id="threadSearch" 
+              placeholder="Tìm kiếm threads..."
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div id="threadsList" class="space-y-2">
+            <!-- Threads will be loaded here -->
+          </div>
+        </div>
+        
+        <div class="px-6 py-3 border-t border-gray-200">
+          <button 
+            id="closeThreadsModalBtn"
+            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ channelThreads, user }}>
+    // Channel and threads data for the frontend (only for admin/editor)
+    const channelThreadsData = channelThreads;
+    const isAdmin = user && (user.role === 'admin' || user.role === 'editor');
+    
+    let currentScheduleId = null;
+    
+    // Only run admin functions if user is admin/editor
+    if (isAdmin) {
+      // Modal functions
+      function showModal(modalId) {
+        document.getElementById(modalId).classList.remove('hidden');
+      }
+      
+      function hideModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+      }
+      
+      // Create/Edit Schedule Modal
+      const createBtn = document.getElementById('createScheduleBtn');
+      if (createBtn) {
+        createBtn.addEventListener('click', () => {
+          document.getElementById('modalTitle').textContent = 'Tạo Podcast Schedule';
+          document.getElementById('scheduleId').value = '';
+          document.getElementById('scheduleTitle').value = '';
+          document.getElementById('scheduleDescription').value = '';
+          showModal('scheduleModal');
+        });
+      }
+      
+      // Edit Schedule buttons
+      document.querySelectorAll('.edit-schedule-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const scheduleId = btn.dataset.scheduleId;
+          const title = btn.dataset.scheduleTitle;
+          const description = btn.dataset.scheduleDescription;
+          
+          document.getElementById('modalTitle').textContent = 'Sửa Podcast Schedule';
+          document.getElementById('scheduleId').value = scheduleId;
+          document.getElementById('scheduleTitle').value = title;
+          document.getElementById('scheduleDescription').value = description;
+          showModal('scheduleModal');
+        });
+      });
+      
+      // Cancel button
+      const cancelBtn = document.getElementById('cancelScheduleBtn');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          hideModal('scheduleModal');
+        });
+      }
+      
+      // Schedule form submission
+      const scheduleForm = document.getElementById('scheduleForm');
+      if (scheduleForm) {
+        scheduleForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          const scheduleId = document.getElementById('scheduleId').value;
+          const title = document.getElementById('scheduleTitle').value;
+          const description = document.getElementById('scheduleDescription').value;
+          
+          try {
+            const url = scheduleId ? `/api/podcast/schedule/${scheduleId}` : '/api/podcast/schedule';
+            const method = scheduleId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+              method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title, description })
+            });
+            
+            if (response.ok) {
+              window.location.reload();
+            } else {
+              const data = await response.json();
+              alert('Lỗi: ' + data.error);
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Có lỗi xảy ra');
+          }
+        });
+      }
+      
+      // Delete Schedule buttons
+      document.querySelectorAll('.delete-schedule-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const scheduleId = btn.dataset.scheduleId;
+          const title = btn.dataset.scheduleTitle;
+          
+          if (confirm(`Bạn có chắc muốn xóa podcast schedule "${title}"?`)) {
+            try {
+              const response = await fetch(`/api/podcast/schedule/${scheduleId}`, {
+                method: 'DELETE'
+              });
+              
+              if (response.ok) {
+                window.location.reload();
+              } else {
+                const data = await response.json();
+                alert('Lỗi: ' + data.error);
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Có lỗi xảy ra');
+            }
+          }
+        });
+      });
+      
+      // Manage Threads buttons
+      document.querySelectorAll('.manage-threads-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const scheduleId = btn.dataset.scheduleId;
+          const title = btn.dataset.scheduleTitle;
+          
+          currentScheduleId = scheduleId;
+          document.getElementById('threadsModalTitle').textContent = `Quản lý Threads - ${title}`;
+          
+          await loadScheduleThreads(scheduleId);
+          showModal('threadsModal');
+        });
+      });
+      
+      // Close threads modal
+      const closeThreadsBtn = document.getElementById('closeThreadsModalBtn');
+      if (closeThreadsBtn) {
+        closeThreadsBtn.addEventListener('click', () => {
+          hideModal('threadsModal');
+        });
+      }
+      
+      // Load threads for a schedule
+      async function loadScheduleThreads(scheduleId) {
+        try {
+          const response = await fetch(`/api/podcast/schedule/${scheduleId}/threads`);
+          const data = await response.json();
+          
+          if (data.success) {
+            const scheduleThreadIds = new Set(data.threads.map(t => t.id));
+            renderThreadsList(scheduleThreadIds);
+          }
+        } catch (error) {
+          console.error('Error loading schedule threads:', error);
+        }
+      }
+      
+      // Render threads list
+      function renderThreadsList(scheduleThreadIds) {
+        const threadsList = document.getElementById('threadsList');
+        const searchTerm = document.getElementById('threadSearch').value.toLowerCase();
+        
+        let html = '';
+        
+        channelThreadsData.forEach(({ channel, threads }) => {
+          const filteredThreads = threads.filter(thread => 
+            thread.title.toLowerCase().includes(searchTerm) ||
+            thread.author_alias.toLowerCase().includes(searchTerm)
+          );
+          
+          if (filteredThreads.length > 0) {
+            html += `<div class="mb-4"><h4 class="font-medium text-gray-900 mb-2">${channel.name}</h4>`;
+            
+            filteredThreads.forEach(thread => {
+              const isInSchedule = scheduleThreadIds.has(thread.id);
+              html += `
+                <div class="flex items-center justify-between p-3 border border-gray-200 rounded mb-2">
+                  <div class="flex-1">
+                    <div class="font-medium">${thread.title}</div>
+                    <div class="text-sm text-gray-500">Tác giả: ${thread.author_alias}</div>
+                  </div>
+                  <button 
+                    class="thread-toggle-btn px-3 py-1 rounded text-sm ${isInSchedule ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}"
+                    data-thread-id="${thread.id}"
+                    data-in-schedule="${isInSchedule}"
+                  >
+                    ${isInSchedule ? '❌ Gỡ bỏ' : '➕ Thêm'}
+                  </button>
+                </div>
+              `;
+            });
+            
+            html += '</div>';
+          }
+        });
+        
+        threadsList.innerHTML = html;
+        
+        // Add event listeners to toggle buttons
+        document.querySelectorAll('.thread-toggle-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const threadId = btn.dataset.threadId;
+            const inSchedule = btn.dataset.inSchedule === 'true';
+            
+            try {
+              const response = await fetch(`/api/podcast/schedule/${currentScheduleId}/threads`, {
+                method: inSchedule ? 'DELETE' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threadId })
+              });
+              
+              if (response.ok) {
+                // Update button state
+                btn.dataset.inSchedule = (!inSchedule).toString();
+                btn.textContent = inSchedule ? '➕ Thêm' : '❌ Gỡ bỏ';
+                btn.className = `thread-toggle-btn px-3 py-1 rounded text-sm ${inSchedule ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`;
+              } else {
+                const data = await response.json();
+                alert('Lỗi: ' + data.error);
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Có lỗi xảy ra');
+            }
+          });
+        });
+      }
+      
+      // Thread search
+      const threadSearch = document.getElementById('threadSearch');
+      if (threadSearch) {
+        threadSearch.addEventListener('input', (e) => {
+          const scheduleThreadIds = new Set(); // We'll need to get this from current state
+          renderThreadsList(scheduleThreadIds);
+        });
+      }
+    }
+  </script>
+</Layout>

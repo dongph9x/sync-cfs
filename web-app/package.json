@@ -26,7 +26,9 @@
     "test-toggle": "tsx src/scripts/test-toggle-published.ts",
     "test-api-toggle": "tsx src/scripts/test-api-toggle.ts",
     "check-schema": "tsx src/scripts/check-schema.ts",
-    "test-update-check": "tsx src/scripts/test-update-and-check.ts"
+    "test-update-check": "tsx src/scripts/test-update-and-check.ts",
+    "setup-podcast": "tsx src/scripts/setup-podcast-tables.ts",
+    "test-podcast-page": "tsx src/scripts/test-podcast-page.ts"
     },
     "dependencies": {
         "@astrojs/react": "^4.3.0",
