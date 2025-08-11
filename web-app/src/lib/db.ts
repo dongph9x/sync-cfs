@@ -539,7 +539,7 @@ export async function getThreadsByPodcastSchedule(podcastScheduleId: number): Pr
     JOIN channels c ON t.channel_id = c.id
     JOIN podcast_threads pt ON t.id = pt.thread_id
     WHERE pt.podcast_schedule_id = ? AND t.published = TRUE
-    ORDER BY t.created_at DESC
+    ORDER BY t.thread_rank DESC, t.created_at DESC
   `, [podcastScheduleId]);
   
   return (rows as any[]).map(row => {

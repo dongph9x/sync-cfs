@@ -124,4 +124,61 @@
   .content-html code {
     @apply break-words;
   }
+  
+  /* Prose styles for thread content */
+  .prose {
+    @apply text-stack-gray-800 leading-relaxed;
+  }
+  
+  .prose h1 {
+    @apply text-2xl font-bold mb-4 text-stack-gray-900;
+  }
+  
+  .prose h2 {
+    @apply text-xl font-bold mb-3 text-stack-gray-900;
+  }
+  
+  .prose h3 {
+    @apply text-lg font-bold mb-2 text-stack-gray-900;
+  }
+  
+  .prose p {
+    @apply mb-4;
+  }
+  
+  .prose ul, .prose ol {
+    @apply mb-4 pl-6;
+  }
+  
+  .prose li {
+    @apply mb-1;
+  }
+  
+  .prose ul li {
+    @apply list-disc;
+  }
+  
+  .prose ol li {
+    @apply list-decimal;
+  }
+  
+  .prose img {
+    @apply max-w-full h-auto rounded-lg my-4;
+  }
+  
+  .prose pre {
+    @apply bg-stack-gray-100 p-4 rounded-md overflow-x-auto my-4;
+  }
+  
+  .prose code {
+    @apply bg-stack-gray-100 px-1 py-0.5 rounded text-sm font-mono;
+  }
+  
+  .prose blockquote {
+    @apply border-l-4 border-stack-gray-300 pl-4 italic text-stack-gray-700 my-4;
+  }
+  
+  .prose a {
+    @apply text-stack-blue hover:text-stack-blue/80 transition-colors;
+  }
 }

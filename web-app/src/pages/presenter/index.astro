@@ -1,0 +1,932 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import type { APIContext } from 'astro';
+import mysql from 'mysql2/promise';
+
+// Database and session functions (copied directly to avoid import issues)
+interface DatabaseConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  database: string;
+}
+
+let pool: mysql.Pool | null = null;
+
+function createPool(config: DatabaseConfig): mysql.Pool {
+  if (pool) {
+    return pool;
+  }
+
+  pool = mysql.createPool({
+    host: config.host,
+    port: config.port || 3306,
+    user: config.user,
+    password: config.password || "",
+    database: config.database,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    supportBigNumbers: true,
+    bigNumberStrings: true
+  } as mysql.PoolOptions);
+  return pool;
+}
+
+function getPool(): mysql.Pool {
+  if (!pool) {
+    throw new Error('Database pool not initialized. Call createPool first.');
+  }
+  return pool;
+}
+
+async function query<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  const pool = getPool();
+  const [rows] = await pool.execute(sql, params);
+  return rows as T[];
+}
+
+async function queryOne<T = any>(sql: string, params?: any[]): Promise<T | null> {
+  const pool = getPool();
+  const [rows] = await pool.execute(sql, params);
+  const results = rows as T[];
+  return results.length > 0 ? results[0] : null;
+}
+
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  password_hash: string;
+  created_at: Date;
+  updated_at: Date;
+  last_login?: Date;
+  is_active: boolean;
+  role: string;
+}
+
+async function getUserBySession(sessionId: string): Promise<User | null> {
+  const user = await queryOne<User>(`
+    SELECT u.* FROM users u
+    JOIN sessions s ON u.id = s.user_id
+    WHERE s.session_id = ? AND s.expires_at > NOW() AND s.is_active = TRUE
+  `, [sessionId]);
+
+  return user;
+}
+
+async function getSessionUser(context: APIContext) {
+  const sessionId = context.cookies.get('session_id')?.value;
+  
+  if (!sessionId) {
+    return null;
+  }
+
+  try {
+    // Initialize database connection
+    createPool({
+      host: import.meta.env.MYSQL_HOST || 'localhost',
+      port: parseInt(import.meta.env.MYSQL_PORT || '3306'),
+      user: import.meta.env.MYSQL_USER || 'root',
+      password: import.meta.env.MYSQL_PASSWORD || '',
+      database: import.meta.env.MYSQL_DATABASE || 'forum'
+    });
+
+    const user = await getUserBySession(sessionId);
+    return user;
+  } catch (error) {
+    console.error('Session error:', error);
+    return null;
+  }
+}
+
+async function requireAuth(context: APIContext, redirectTo = '/login') {
+  const user = await getSessionUser(context);
+  
+  if (!user) {
+    const url = new URL(context.request.url);
+    const returnTo = encodeURIComponent(url.pathname + url.search);
+    return context.redirect(`${redirectTo}?returnTo=${returnTo}`);
+  }
+  
+  return user;
+}
+
+async function requireRole(context: APIContext, roles: string[], redirectTo = '/login') {
+  const user = await requireAuth(context, redirectTo);
+  
+  if (!roles.includes(user.role)) {
+    return context.redirect('/unauthorized');
+  }
+  
+  return user;
+}
+
+// Database types and functions
+interface Channel {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  position: number;
+  created_at: Date;
+  thread_count?: number;
+}
+
+interface Thread {
+  id: string;
+  channel_id: string;
+  slug: string;
+  title: string;
+  author_alias: string;
+  body_html: string;
+  tags: string[];
+  reply_count: number;
+  thread_rank: number;
+  published: boolean;
+  created_at: Date;
+  updated_at: Date;
+  channel_name?: string;
+  channel_slug?: string;
+}
+
+interface PodcastSchedule {
+  id: number;
+  title: string;
+  description: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+async function getAllChannels(): Promise<Channel[]> {
+  const pool = getPool();
+  const [rows] = await pool.execute(`
+    SELECT * FROM channels 
+    ORDER BY position ASC, name ASC
+  `);
+  
+  return (rows as any[]).map(row => ({
+    id: String(row.id),
+    slug: row.slug,
+    name: row.name,
+    description: row.description,
+    position: row.position,
+    created_at: row.created_at,
+    thread_count: row.thread_count ? parseInt(row.thread_count) : undefined
+  }));
+}
+
+async function getThreadsByChannelId(channelId: string, includeUnpublished: boolean = false): Promise<Thread[]> {
+  const pool = getPool();
+  const publishedFilter = includeUnpublished ? '' : 'AND t.published = TRUE';
+  
+  const [rows] = await pool.execute(`
+    SELECT t.*, c.name as channel_name, c.slug as channel_slug
+    FROM threads t
+    JOIN channels c ON t.channel_id = c.id
+    WHERE t.channel_id = ? ${publishedFilter}
+    ORDER BY t.thread_rank DESC, t.created_at DESC
+  `, [channelId]);
+  
+  return (rows as any[]).map(row => {
+    let tags: string[] = [];
+    if (row.tags) {
+      try {
+        tags = JSON.parse(row.tags);
+      } catch (error) {
+        console.warn(`Failed to parse tags JSON for thread ${row.id}:`, row.tags);
+        tags = [];
+      }
+    }
+    
+    return {
+      id: String(row.id),
+      channel_id: String(row.channel_id),
+      slug: row.slug,
+      title: row.title,
+      author_alias: row.author_alias,
+      body_html: row.body_html,
+      tags: tags,
+      reply_count: row.reply_count,
+      thread_rank: row.thread_rank,
+      published: row.published === 1 || row.published === true,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      channel_name: row.channel_name,
+      channel_slug: row.channel_slug
+    };
+  });
+}
+
+async function getAllPodcastSchedules(): Promise<PodcastSchedule[]> {
+  const pool = getPool();
+  const [rows] = await pool.execute(`
+    SELECT * FROM podcast_schedules 
+    ORDER BY created_at DESC
+  `);
+  
+  return (rows as any[]).map(row => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  }));
+}
+
+async function getThreadsByPodcastSchedule(podcastScheduleId: number): Promise<Thread[]> {
+  const pool = getPool();
+  const [rows] = await pool.execute(`
+    SELECT t.*, c.name as channel_name, c.slug as channel_slug
+    FROM threads t
+    JOIN channels c ON t.channel_id = c.id
+    JOIN podcast_threads pt ON t.id = pt.thread_id
+    WHERE pt.podcast_schedule_id = ? AND t.published = TRUE
+    ORDER BY t.thread_rank DESC, t.created_at DESC
+  `, [podcastScheduleId]);
+  
+  return (rows as any[]).map(row => {
+    let tags: string[] = [];
+    if (row.tags) {
+      try {
+        tags = JSON.parse(row.tags);
+      } catch (error) {
+        console.warn(`Failed to parse tags JSON for thread ${row.id}:`, row.tags);
+        tags = [];
+      }
+    }
+    
+    return {
+      id: String(row.id),
+      channel_id: String(row.channel_id),
+      slug: row.slug,
+      title: row.title,
+      author_alias: row.author_alias,
+      body_html: row.body_html,
+      tags: tags,
+      reply_count: row.reply_count,
+      thread_rank: row.thread_rank,
+      published: row.published === 1 || row.published === true,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      channel_name: row.channel_name,
+      channel_slug: row.channel_slug
+    };
+  });
+}
+
+// Initialize database connection
+createPool({
+  host: import.meta.env.MYSQL_HOST || 'localhost',
+  port: parseInt(import.meta.env.MYSQL_PORT || '3306'),
+  user: import.meta.env.MYSQL_USER || 'root',
+  password: import.meta.env.MYSQL_PASSWORD || '',
+  database: import.meta.env.MYSQL_DATABASE || 'forum'
+});
+
+// Require presenter role
+await requireRole(Astro, ['admin', 'editor', 'presenter']);
+
+// Get current user
+const user = await getSessionUser(Astro);
+
+// Get all podcast schedules with their threads
+const schedules = await getAllPodcastSchedules();
+const schedulesWithThreads = await Promise.all(
+  schedules.map(async (schedule) => {
+    const threads = await getThreadsByPodcastSchedule(schedule.id);
+    return { ...schedule, threads };
+  })
+);
+
+// Get all channels and their threads for selection
+const channels = await getAllChannels();
+const channelThreads = await Promise.all(
+  channels.map(async (channel) => {
+    const threads = await getThreadsByChannelId(channel.id, false); // Only published threads
+    return { channel, threads };
+  })
+);
+---
+
+<Layout title="Quản Lý Podcast - Presenter" seo={{ title: "Quản Lý Podcast - Presenter", description: "Quản lý podcast schedule và threads liên quan" }}>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-4">🎙️ Quản Lý Podcast Schedule</h1>
+      <p class="text-gray-600">Quản lý các tập podcast và threads liên quan</p>
+      <div class="mt-2">
+        <span class="px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800">
+          Presenter Dashboard
+        </span>
+      </div>
+    </div>
+
+    <!-- Create Schedule Button -->
+    <div class="mb-6">
+      <button 
+        id="createScheduleBtn"
+        class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+      >
+        ➕ Tạo Podcast Schedule Mới
+      </button>
+    </div>
+
+    <!-- Podcast Schedules List -->
+    {schedulesWithThreads.length === 0 ? (
+      <div class="text-center py-12">
+        <p class="text-gray-500 text-lg">Chưa có podcast schedule nào.</p>
+        <p class="text-gray-400 text-sm mt-2">Hãy tạo schedule đầu tiên!</p>
+      </div>
+    ) : (
+      <div class="grid gap-8">
+        {schedulesWithThreads.map((schedule) => (
+          <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+            <div class="flex justify-between items-start mb-6">
+              <div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">{schedule.title}</h2>
+                {schedule.description && (
+                  <p class="text-gray-600 mb-3">{schedule.description}</p>
+                )}
+                <p class="text-sm text-gray-500">
+                  Tạo lúc: {new Date(schedule.created_at).toLocaleString('vi-VN')}
+                </p>
+                <p class="text-sm text-gray-500">
+                  Threads: {schedule.threads.length} bài
+                </p>
+              </div>
+              
+              <!-- Presenter Controls -->
+              <div class="flex space-x-2">
+                <button 
+                  class="edit-schedule-btn bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
+                  data-schedule-id={schedule.id}
+                  data-schedule-title={schedule.title}
+                  data-schedule-description={schedule.description || ''}
+                >
+                  ✏️ Sửa
+                </button>
+                <button 
+                  class="manage-threads-btn bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                  data-schedule-id={schedule.id}
+                  data-schedule-title={schedule.title}
+                >
+                  🔗 Quản lý Threads
+                </button>
+                <button 
+                  class="delete-schedule-btn bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                  data-schedule-id={schedule.id}
+                  data-schedule-title={schedule.title}
+                >
+                  🗑️ Xóa
+                </button>
+              </div>
+            </div>
+
+            <!-- Threads List -->
+            {schedule.threads.length > 0 && (
+              <div class="mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">Threads trong schedule:</h3>
+                <div class="space-y-2">
+                  {schedule.threads.map((thread) => (
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div class="flex-1">
+                        <h4 class="font-medium text-gray-900">{thread.title}</h4>
+                        <p class="text-sm text-gray-600">
+                          Tác giả: {thread.author_alias} • 
+                          Trả lời: {thread.reply_count} • 
+                          Rank: {thread.thread_rank}
+                        </p>
+                      </div>
+                                                   <button 
+                               class="view-thread-btn text-blue-600 hover:text-blue-800 text-sm font-medium"
+                               data-thread-id={thread.id}
+                               data-thread-title={thread.title}
+                               data-thread-content={thread.body_html}
+                             >
+                               Xem →
+                             </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+  <!-- Create/Edit Schedule Modal -->
+  <div id="scheduleModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 lg:w-1/3 shadow-lg rounded-md bg-white">
+      <div class="mt-3">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="modalTitle" class="text-lg font-medium text-gray-900">Tạo Podcast Schedule</h3>
+          <button
+            id="cancelScheduleBtn"
+            class="text-gray-400 hover:text-gray-600"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <form id="scheduleForm" class="space-y-4">
+          <input type="hidden" id="scheduleId" value="" />
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Tiêu đề</label>
+            <input
+              type="text"
+              id="scheduleTitle"
+              required
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+            />
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Mô tả (tùy chọn)</label>
+            <textarea
+              id="scheduleDescription"
+              rows="3"
+              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+            ></textarea>
+          </div>
+          
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              id="cancelScheduleBtn"
+              class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              Lưu
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Threads Modal -->
+  <div id="threadsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+    <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+      <div class="mt-3">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="threadsModalTitle" class="text-lg font-medium text-gray-900">Quản lý Threads</h3>
+          <button
+            id="cancelThreadsBtn"
+            class="text-gray-400 hover:text-gray-600"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Available Threads -->
+          <div>
+            <h4 class="text-md font-medium text-gray-900 mb-3">Threads có sẵn</h4>
+            <div id="availableThreads" class="space-y-2 max-h-96 overflow-y-auto">
+              <!-- Threads will be populated by JavaScript -->
+            </div>
+          </div>
+          
+          <!-- Selected Threads -->
+          <div>
+            <h4 class="text-md font-medium text-gray-900 mb-3">Threads đã chọn</h4>
+            <div id="selectedThreads" class="space-y-2 max-h-96 overflow-y-auto">
+              <!-- Selected threads will be populated by JavaScript -->
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-end space-x-3 mt-6">
+          <button
+            type="button"
+            id="cancelThreadsBtn"
+            class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ channelThreads, user }}>
+    // Channel and threads data for the frontend
+    const channelThreadsData = channelThreads;
+    
+    let currentScheduleId = null;
+    
+    // Modal functions
+    function showModal(modalId) {
+      document.getElementById(modalId).classList.remove('hidden');
+    }
+    
+    function hideModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+    
+    // Create/Edit Schedule Modal
+    const createBtn = document.getElementById('createScheduleBtn');
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        document.getElementById('modalTitle').textContent = 'Tạo Podcast Schedule';
+        document.getElementById('scheduleId').value = '';
+        document.getElementById('scheduleTitle').value = '';
+        document.getElementById('scheduleDescription').value = '';
+        showModal('scheduleModal');
+      });
+    }
+    
+    // Edit Schedule buttons
+    document.querySelectorAll('.edit-schedule-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const scheduleId = btn.dataset.scheduleId;
+        const title = btn.dataset.scheduleTitle;
+        const description = btn.dataset.scheduleDescription;
+        
+        document.getElementById('modalTitle').textContent = 'Sửa Podcast Schedule';
+        document.getElementById('scheduleId').value = scheduleId;
+        document.getElementById('scheduleTitle').value = title;
+        document.getElementById('scheduleDescription').value = description;
+        showModal('scheduleModal');
+      });
+    });
+    
+    // Cancel button
+    const cancelBtn = document.getElementById('cancelScheduleBtn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        hideModal('scheduleModal');
+      });
+    }
+    
+    // Schedule form submission
+    const scheduleForm = document.getElementById('scheduleForm');
+    if (scheduleForm) {
+      scheduleForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const scheduleId = document.getElementById('scheduleId').value;
+        const title = document.getElementById('scheduleTitle').value;
+        const description = document.getElementById('scheduleDescription').value;
+        
+        try {
+          const url = scheduleId ? `/api/podcast/schedule/${scheduleId}` : '/api/podcast/schedule';
+          const method = scheduleId ? 'PUT' : 'POST';
+          
+          const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, description })
+          });
+          
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            const data = await response.json();
+            alert('Lỗi: ' + data.error);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Có lỗi xảy ra');
+        }
+      });
+    }
+    
+    // Delete Schedule buttons
+    document.querySelectorAll('.delete-schedule-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const scheduleId = btn.dataset.scheduleId;
+        const title = btn.dataset.scheduleTitle;
+        
+        if (confirm(`Bạn có chắc muốn xóa podcast schedule "${title}"?`)) {
+          fetch(`/api/podcast/schedule/${scheduleId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          })
+          .then(response => {
+            if (response.ok) {
+              window.location.reload();
+            } else {
+              return response.json();
+            }
+          })
+          .then(data => {
+            if (data && data.error) {
+              alert('Lỗi: ' + data.error);
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            alert('Có lỗi xảy ra');
+          });
+        }
+      });
+    });
+    
+    // Manage Threads buttons
+    document.querySelectorAll('.manage-threads-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const scheduleId = btn.dataset.scheduleId;
+        const title = btn.dataset.scheduleTitle;
+        
+        currentScheduleId = scheduleId;
+        document.getElementById('threadsModalTitle').textContent = `Quản lý Threads - ${title}`;
+        
+        // Load current threads for this schedule
+        loadScheduleThreads(scheduleId);
+        
+        showModal('threadsModal');
+      });
+    });
+    
+    // Cancel threads button
+    const cancelThreadsBtn = document.getElementById('cancelThreadsBtn');
+    if (cancelThreadsBtn) {
+      cancelThreadsBtn.addEventListener('click', () => {
+        hideModal('threadsModal');
+      });
+    }
+    
+    // Load schedule threads
+    async function loadScheduleThreads(scheduleId) {
+      try {
+        const response = await fetch(`/api/podcast/schedule/${scheduleId}/threads`);
+        const data = await response.json();
+        
+        if (data.success) {
+          populateThreadsLists(data.threads);
+        }
+      } catch (error) {
+        console.error('Error loading schedule threads:', error);
+      }
+    }
+    
+    // Populate threads lists
+    function populateThreadsLists(scheduleThreads) {
+      const availableThreads = document.getElementById('availableThreads');
+      const selectedThreads = document.getElementById('selectedThreads');
+      
+      // Clear existing content
+      availableThreads.innerHTML = '';
+      selectedThreads.innerHTML = '';
+      
+      // Get all available threads from all channels
+      const allThreads = [];
+      channelThreadsData.forEach(channelData => {
+        channelData.threads.forEach(thread => {
+          allThreads.push({
+            ...thread,
+            channel_name: channelData.channel.name
+          });
+        });
+      });
+      
+      // Separate available and selected threads
+      const selectedThreadIds = scheduleThreads.map(t => t.id);
+      const availableThreadsList = allThreads.filter(t => !selectedThreadIds.includes(t.id));
+      
+      // Populate available threads
+      availableThreadsList.forEach(thread => {
+        const threadElement = createThreadElement(thread, false);
+        availableThreads.appendChild(threadElement);
+      });
+      
+                   // Populate selected threads
+             scheduleThreads.forEach(thread => {
+               const threadElement = createThreadElement(thread, true);
+               selectedThreads.appendChild(threadElement);
+             });
+             
+             // Setup view thread buttons for newly created elements
+             setupViewThreadButtons();
+    }
+    
+    // Create thread element
+    function createThreadElement(thread, isSelected) {
+      const div = document.createElement('div');
+      div.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+      
+      div.innerHTML = `
+        <div class="flex-1">
+          <h4 class="font-medium text-gray-900">${thread.title}</h4>
+          <p class="text-sm text-gray-600">
+            Kênh: ${thread.channel_name || 'N/A'} • 
+            Tác giả: ${thread.author_alias} • 
+            Trả lời: ${thread.reply_count}
+          </p>
+        </div>
+        <div class="flex space-x-2">
+                     <button 
+             class="view-thread-btn text-blue-600 hover:text-blue-800 text-sm font-medium"
+             data-thread-id="${thread.id}"
+             data-thread-title="${thread.title}"
+             data-thread-content="${thread.body_html}"
+           >
+             Xem
+           </button>
+          <button 
+            class="thread-action-btn px-3 py-1 rounded text-sm font-medium ${isSelected ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}"
+            data-thread-id="${thread.id}"
+            data-action="${isSelected ? 'remove' : 'add'}"
+          >
+            ${isSelected ? 'Gỡ bỏ' : 'Thêm'}
+          </button>
+        </div>
+      `;
+      
+      // Add event listener
+      const actionBtn = div.querySelector('.thread-action-btn');
+      actionBtn.addEventListener('click', () => {
+        const action = actionBtn.dataset.action;
+        const threadId = actionBtn.dataset.threadId;
+        
+        if (action === 'add') {
+          addThreadToSchedule(threadId);
+        } else {
+          removeThreadFromSchedule(threadId);
+        }
+      });
+      
+      return div;
+    }
+    
+    // Add thread to schedule
+    async function addThreadToSchedule(threadId) {
+      try {
+        const response = await fetch(`/api/podcast/schedule/${currentScheduleId}/threads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ threadId })
+        });
+        
+        if (response.ok) {
+          // Reload threads
+          loadScheduleThreads(currentScheduleId);
+        } else {
+          const data = await response.json();
+          alert('Lỗi: ' + data.error);
+        }
+      } catch (error) {
+        console.error('Error adding thread:', error);
+        alert('Có lỗi xảy ra');
+      }
+    }
+    
+    // Remove thread from schedule
+    async function removeThreadFromSchedule(threadId) {
+      try {
+        const response = await fetch(`/api/podcast/schedule/${currentScheduleId}/threads`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ threadId })
+        });
+        
+        if (response.ok) {
+          // Reload threads
+          loadScheduleThreads(currentScheduleId);
+        } else {
+          const data = await response.json();
+          alert('Lỗi: ' + data.error);
+        }
+      } catch (error) {
+        console.error('Error removing thread:', error);
+        alert('Có lỗi xảy ra');
+      }
+    }
+    
+    // Thread Modal functions
+    function showThreadModal(modalId) {
+      document.getElementById(modalId).classList.remove('hidden');
+    }
+    
+    function hideThreadModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+    
+    // View Thread buttons (for both main page and modal)
+    function setupViewThreadButtons() {
+      document.querySelectorAll('.view-thread-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const threadId = btn.dataset.threadId;
+          const title = btn.dataset.threadTitle;
+          const content = btn.dataset.threadContent;
+          
+          // Populate modal content
+          document.getElementById('threadTitle').textContent = title;
+          document.getElementById('threadContent').innerHTML = content;
+          
+          showThreadModal('threadModal');
+        });
+      });
+    }
+    
+    // Setup all event listeners after DOM is loaded
+    function setupModalEventListeners() {
+      console.log('Setting up modal event listeners...');
+      
+      // Close thread modal buttons
+      const closeThreadModalBtn = document.getElementById('closeThreadModalBtn');
+      if (closeThreadModalBtn) {
+        console.log('Found close button, adding event listener');
+        closeThreadModalBtn.addEventListener('click', () => {
+          console.log('Close button clicked');
+          hideThreadModal('threadModal');
+        });
+      } else {
+        console.log('Close button not found');
+      }
+      
+      // Close thread modal button (bottom button)
+      const closeButtons = document.querySelectorAll('.close-thread-modal-btn');
+      console.log('Found', closeButtons.length, 'close buttons');
+      closeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          console.log('Bottom close button clicked');
+          hideThreadModal('threadModal');
+        });
+      });
+      
+      // Close modal when clicking outside
+      const threadModal = document.getElementById('threadModal');
+      if (threadModal) {
+        console.log('Found modal, adding outside click listener');
+        threadModal.addEventListener('click', (e) => {
+          if (e.target === threadModal) {
+            console.log('Outside click detected');
+            hideThreadModal('threadModal');
+          }
+        });
+      } else {
+        console.log('Modal not found');
+      }
+      
+      // Close modal with Escape key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !threadModal.classList.contains('hidden')) {
+          console.log('Escape key pressed');
+          hideThreadModal('threadModal');
+        }
+      });
+    }
+    
+    // Setup view thread buttons on page load
+    setupViewThreadButtons();
+    
+    // Setup modal event listeners after DOM is loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupModalEventListeners);
+    } else {
+      setupModalEventListeners();
+    }
+  </script>
+  
+  <!-- Thread Content Modal -->
+  <div id="threadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+    <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+      <div class="mt-3">
+        <div class="flex justify-end mb-4">
+          <button
+            id="closeThreadModalBtn"
+            class="text-gray-400 hover:text-gray-600"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div class="space-y-4">
+          <div>
+            <h4 id="threadTitle" class="text-xl font-bold text-gray-900 mb-4"></h4>
+          </div>
+          
+          <div id="threadContent" class="prose max-w-none">
+            <!-- Thread content will be populated here -->
+          </div>
+        </div>
+        
+        <div class="flex justify-end space-x-3 mt-6">
+          <button
+            type="button"
+            class="close-thread-modal-btn px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

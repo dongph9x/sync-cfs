@@ -747,11 +747,13 @@ export default function AdminPanel({
                     <option value="admin">Admin - Quản trị viên</option>
                     <option value="editor">Editor - Biên tập viên</option>
                     <option value="viewer">Viewer - Người xem</option>
+                    <option value="presenter">Presenter - Người dẫn chương trình</option>
                   </select>
                   <div className="mt-1 text-sm text-gray-500">
                     <p><strong>Admin:</strong> Toàn quyền quản trị hệ thống</p>
                     <p><strong>Editor:</strong> Chỉnh sửa threads và quản lý nội dung</p>
                     <p><strong>Viewer:</strong> Chỉ xem và không có quyền chỉnh sửa</p>
+                    <p><strong>Presenter:</strong> Quản lý podcast schedule và threads liên quan</p>
                   </div>
                 </div>
                 

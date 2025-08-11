@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const password = '112233';
 
     // Validate role
-    const validRoles = ['admin', 'editor', 'viewer'];
+    const validRoles = ['admin', 'editor', 'viewer', 'presenter'];
     if (!validRoles.includes(role)) {
       return new Response(JSON.stringify({ success: false, error: 'Role không hợp lệ' }), {
         status: 400,

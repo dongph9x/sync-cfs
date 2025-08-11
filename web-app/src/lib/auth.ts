@@ -130,9 +130,13 @@ export function getUserPermissions(user: User | null): string[] {
   const permissions: string[] = [];
   
   if (user.role === 'admin') {
-    permissions.push('manage_users', 'manage_content', 'manage_roles', 'view_analytics');
+    permissions.push('manage_users', 'manage_content', 'manage_roles', 'view_analytics', 'manage_podcast');
   } else if (user.role === 'moderator') {
     permissions.push('manage_content', 'view_analytics');
+  } else if (user.role === 'editor') {
+    permissions.push('manage_content', 'manage_podcast');
+  } else if (user.role === 'presenter') {
+    permissions.push('manage_podcast');
   } else {
     permissions.push('view_content');
   }

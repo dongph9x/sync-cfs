@@ -15,9 +15,9 @@ const schedulesWithThreads = await Promise.all(
   })
 );
 
-// Get all channels and their threads for selection (only for admin/editor)
+// Get all channels and their threads for selection (only for admin/editor/presenter)
 let channelThreads = [];
-if (user && (user.role === 'admin' || user.role === 'editor')) {
+if (user && (user.role === 'admin' || user.role === 'editor' || user.role === 'presenter')) {
   const channels = await getAllChannels();
   channelThreads = await Promise.all(
     channels.map(async (channel) => {
@@ -35,8 +35,8 @@ if (user && (user.role === 'admin' || user.role === 'editor')) {
       <p class="text-gray-600">Danh sách các tập podcast và threads liên quan</p>
     </div>
 
-    <!-- Admin Controls (only for admin/editor) -->
-    {user && (user.role === 'admin' || user.role === 'editor') && (
+    <!-- Admin Controls (only for admin/editor/presenter) -->
+    {user && (user.role === 'admin' || user.role === 'editor' || user.role === 'presenter') && (
       <div class="mb-6">
         <button 
           id="createScheduleBtn"
@@ -51,7 +51,7 @@ if (user && (user.role === 'admin' || user.role === 'editor')) {
     {schedulesWithThreads.length === 0 ? (
       <div class="text-center py-12">
         <p class="text-gray-500 text-lg">Chưa có podcast schedule nào.</p>
-        {user && (user.role === 'admin' || user.role === 'editor') && (
+        {user && (user.role === 'admin' || user.role === 'editor' || user.role === 'presenter') && (
           <p class="text-gray-400 text-sm mt-2">Hãy tạo schedule đầu tiên!</p>
         )}
       </div>
@@ -71,7 +71,7 @@ if (user && (user.role === 'admin' || user.role === 'editor')) {
               </div>
               
               <!-- Admin Controls -->
-              {user && (user.role === 'admin' || user.role === 'editor') && (
+              {user && (user.role === 'admin' || user.role === 'editor' || user.role === 'presenter') && (
                 <div class="flex space-x-2">
                   <button 
                     class="edit-schedule-btn bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
@@ -249,13 +249,13 @@ if (user && (user.role === 'admin' || user.role === 'editor')) {
   </div>
 
   <script define:vars={{ channelThreads, user }}>
-    // Channel and threads data for the frontend (only for admin/editor)
+    // Channel and threads data for the frontend (only for admin/editor/presenter)
     const channelThreadsData = channelThreads;
-    const isAdmin = user && (user.role === 'admin' || user.role === 'editor');
+    const isAdmin = user && (user.role === 'admin' || user.role === 'editor' || user.role === 'presenter');
     
     let currentScheduleId = null;
     
-    // Only run admin functions if user is admin/editor
+    // Only run admin functions if user is admin/editor/presenter
     if (isAdmin) {
       // Modal functions
       function showModal(modalId) {

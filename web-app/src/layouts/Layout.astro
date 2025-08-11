@@ -129,12 +129,22 @@ const websiteSchema = generateStructuredData({
                                 Xem confessions
                             </a>
                         )}
-                        <a
+                        {user && user.role === 'presenter' && (
+                            <a
+                                href="/presenter"
+                                class="text-stack-gray-700 hover:text-stack-gray-900 transition-colors"
+                            >
+                                🎤 Presenter
+                            </a>
+                        )}
+                        {user && (user.role === 'admin' || user.role === 'editor') && (
+                            <a
                             href="/podcast"
                             class="text-stack-gray-700 hover:text-stack-gray-900 transition-colors"
                         >
                             🎙️ Podcast
                         </a>
+                        )}
                         <a
                             href="/forum/"
                             class="text-stack-gray-700 hover:text-stack-gray-900 transition-colors"
