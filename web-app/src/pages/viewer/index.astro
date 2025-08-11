@@ -45,6 +45,6 @@ const seo = {
       <p class="mt-2 text-gray-600">Xem và quản lý threads trong các kênh (Chỉ xem)</p>
     </div>
 
-    <ViewerPanel client:load channels={channels} channelThreads={channelThreads} />
+    <ViewerPanel client:load channels={channels as any} channelThreads={channelThreads as any} />
   </div>
 </Layout>

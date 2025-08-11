@@ -47,6 +47,11 @@ export async function requireAuth(context: APIContext, redirectTo = '/login') {
 export async function requireRole(context: APIContext, roles: string[], redirectTo = '/login') {
   const user = await requireAuth(context, redirectTo);
   
+  // If requireAuth returned a Response (redirect), return it
+  if (user instanceof Response) {
+    return user;
+  }
+  
   if (!roles.includes(user.role)) {
     return context.redirect('/unauthorized');
   }

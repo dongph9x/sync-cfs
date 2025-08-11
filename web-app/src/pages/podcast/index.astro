@@ -16,7 +16,7 @@ const schedulesWithThreads = await Promise.all(
 );
 
 // Get all channels and their threads for selection (only for admin/editor/presenter)
-let channelThreads = [];
+let channelThreads: any[] = [];
 if (user && (user.role === 'admin' || user.role === 'editor' || user.role === 'presenter')) {
   const channels = await getAllChannels();
   channelThreads = await Promise.all(
@@ -28,7 +28,7 @@ if (user && (user.role === 'admin' || user.role === 'editor' || user.role === 'p
 }
 ---
 
-<Layout title="Podcast Schedules" seo={{ title: "Podcast Schedules", description: "Danh sách các tập podcast và threads liên quan" }}>
+<Layout seo={{ title: "Podcast Schedules", description: "Danh sách các tập podcast và threads liên quan" }}>
   <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-gray-900 mb-4">🎙️ Podcast Schedules</h1>
@@ -127,7 +127,7 @@ if (user && (user.role === 'admin' || user.role === 'editor' || user.role === 'p
                             <div class="flex space-x-1 mt-2">
                               {thread.tags.map((tag, index) => (
                                 <span
-                                  key={index}
+                                                                     data-key={index}
                                   class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full"
                                 >
                                   {tag}

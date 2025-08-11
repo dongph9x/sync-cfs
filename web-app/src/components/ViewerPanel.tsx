@@ -9,6 +9,10 @@ interface Thread {
   created_at: string;
   body_html?: string;
   slug?: string;
+  channel_id?: string;
+  tags?: any;
+  updated_at?: string;
+  published?: boolean;
 }
 
 interface Channel {
@@ -17,6 +21,8 @@ interface Channel {
   description?: string;
   slug?: string;
   thread_count?: number;
+  position?: number;
+  created_at?: string;
 }
 
 interface ViewerPanelProps {

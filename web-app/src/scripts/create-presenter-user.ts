@@ -21,7 +21,13 @@ async function createPresenterUser() {
     const role = 'presenter';
 
     // Check if user already exists
-    const pool = createPool();
+    const pool = createPool({
+      host: process.env.MYSQL_HOST || 'localhost',
+      port: parseInt(process.env.MYSQL_PORT || '3306'),
+      user: process.env.MYSQL_USER || 'root',
+      password: process.env.MYSQL_PASSWORD || '',
+      database: process.env.MYSQL_DATABASE || 'forum'
+    });
     const [existingUsers] = await pool.execute(
       'SELECT id FROM users WHERE username = ? OR email = ?',
       [username, email]

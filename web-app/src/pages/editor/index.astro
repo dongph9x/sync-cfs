@@ -45,6 +45,6 @@ const seo = {
       <p class="mt-2 text-gray-600">Xem và chỉnh sửa threads trong các kênh</p>
     </div>
 
-    <EditorPanel client:load channels={channels} channelThreads={channelThreads} />
+    <EditorPanel client:load channels={channels as any} channelThreads={channelThreads as any} />
   </div>
 </Layout>

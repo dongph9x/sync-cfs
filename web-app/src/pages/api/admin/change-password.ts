@@ -77,7 +77,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
-    const userId = sessions[0].user_id;
+    const userId = (sessions[0] as any).user_id;
 
     const [users] = await dbPool.execute(
       'SELECT password_hash FROM users WHERE id = ?',
@@ -91,7 +91,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
-    const isValidPassword = verifyPassword(currentPassword, users[0].password_hash);
+    const isValidPassword = verifyPassword(currentPassword, (users[0] as any).password_hash);
     if (!isValidPassword) {
       return new Response(JSON.stringify({ success: false, error: 'Mật khẩu hiện tại không đúng' }), {
         status: 400,

@@ -11,6 +11,9 @@ interface Thread {
   created_at: string;
   body_html?: string;
   slug?: string;
+  channel_id?: string;
+  tags?: any;
+  updated_at?: string;
 }
 
 interface Channel {
@@ -19,6 +22,8 @@ interface Channel {
   description?: string;
   slug?: string;
   thread_count?: number;
+  position?: number;
+  created_at?: string;
 }
 
 interface AdminPanelProps {
@@ -524,7 +529,7 @@ export default function AdminPanel({
                   <Editor
                     key={editorKey} // Force re-render when key changes
                     apiKey='0f5tsbkjdfnkk3pndq95f01lwbcuh1v9lll7ixui666u7j8e'
-                    onInit={(evt, editor) => editorRef.current = editor}
+                                         onInit={(_evt: any, editor: any) => editorRef.current = editor}
                     initialValue={editForm.content}
                     init={{
                       height: 400,
@@ -542,7 +547,7 @@ export default function AdminPanel({
                         { value: 'First.Name', title: 'First Name' },
                         { value: 'Email', title: 'Email' },
                       ],
-                      ai_request: (request, respondWith) => respondWith.string(() => Promise.reject('See docs to implement AI Assistant')),
+                                             ai_request: (_request: any, respondWith: any) => respondWith.string(() => Promise.reject('See docs to implement AI Assistant')),
                       uploadcare_public_key: '690e2c7b6ddd3e323677',
                       content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
                       branding: false,

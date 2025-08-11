@@ -27,11 +27,11 @@ const channelThreads = await Promise.all(
 );
 ---
 
-<Layout title="Quản Trị - Ani Nhi Confessions">
+<Layout seo={{ title: "Quản Trị - Ani Nhi Confessions", description: "Trang quản trị hệ thống" }}>
   <AdminPanel 
     client:load
-    channels={channels}
-    channelThreads={channelThreads}
+    channels={channels as any}
+    channelThreads={channelThreads as any}
     itemsPerPage={20}
   />
 </Layout>

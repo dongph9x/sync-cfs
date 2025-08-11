@@ -115,7 +115,7 @@ async function requireAuth(context: APIContext, redirectTo = '/login') {
 async function requireRole(context: APIContext, roles: string[], redirectTo = '/login') {
   const user = await requireAuth(context, redirectTo);
   
-  if (!roles.includes(user.role)) {
+  if (!roles.includes((user as any).role)) {
     return context.redirect('/unauthorized');
   }
   
