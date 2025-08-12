@@ -172,22 +172,31 @@ const websiteSchema = generateStructuredData({
                             Tìm Kiếm
                         </a>
                         
-                        {!user &&
+                        {!user ? (
+                            <>
+                                <a
+                                    href={bannerConfig.discordInviteUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="btn-primary"
+                                >
+                                    Tham Gia Discord
+                                </a>
+                                <a
+                                    href="/login"
+                                    class="btn-primary"
+                                >
+                                    Đăng nhập
+                                </a>
+                            </>
+                        ) : (
                             <a
-                                href={bannerConfig.discordInviteUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="btn-primary"
+                                href="/logout"
+                                class="text-stack-gray-700 hover:text-stack-gray-900 transition-colors"
                             >
-                                Tham Gia Discord
+                                Đăng xuất
                             </a>
-                            <a
-                                href="/login"
-                                class="btn-primary"
-                            >
-                                Đăng nhập
-                            </a>
-                        }
+                        )}
                     </nav>
                 </div>
             </div>

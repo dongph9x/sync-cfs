@@ -8,7 +8,7 @@ export default defineConfig({
     output: 'server',
     adapter: vercel(),
     integrations: [tailwind(), react()],
-    site: 'https://your-domain.com', // Update this to your actual domain
+    site: 'https://aninhicfs.blog', // Update this to your actual domain
     build: {
         assets: '_assets'
     },
