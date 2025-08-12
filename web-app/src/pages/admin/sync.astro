@@ -18,6 +18,7 @@ createPool({
 
 let syncResult = null;
 let error = null;
+let syncLogs: string[] = [];
 
 // Handle form submission
 if (Astro.request.method === 'POST') {
@@ -25,18 +26,37 @@ if (Astro.request.method === 'POST') {
     const formData = await Astro.request.formData();
     const action = formData.get('action') as string;
     
+    syncLogs = [];
+    syncLogs.push(`🚀 Starting ${action === 'force-full-sync' ? 'Force Full' : 'Smart'} Sync...`);
+    syncLogs.push(`📅 ${new Date().toLocaleString()}`);
+    
     if (action === 'sync') {
       // Normal sync
+      syncLogs.push(`📡 Connecting to Discord...`);
       syncResult = await smartSync(null, { forceFull: false });
+      syncLogs.push(`✅ Smart sync completed successfully`);
+      
+      syncLogs.push(`🔄 Updating thread ranks...`);
       await updateRanksAfterSync();
+      syncLogs.push(`✅ Thread ranks updated successfully`);
+      
+      syncLogs.push(`🎉 Sync process completed!`);
     } else if (action === 'force-full-sync') {
       // Force full sync
+      syncLogs.push(`📡 Connecting to Discord for full sync...`);
       syncResult = await smartSync(null, { forceFull: true });
+      syncLogs.push(`✅ Force full sync completed successfully`);
+      
+      syncLogs.push(`🔄 Updating thread ranks...`);
       await updateRanksAfterSync();
+      syncLogs.push(`✅ Thread ranks updated successfully`);
+      
+      syncLogs.push(`🎉 Force full sync process completed!`);
     }
   } catch (err) {
     console.error('Sync error:', err);
     error = err instanceof Error ? err.message : 'Unknown error occurred';
+    syncLogs.push(`❌ Sync failed: ${error}`);
   }
 }
 ---
@@ -62,6 +82,27 @@ if (Astro.request.method === 'POST') {
               <div class="mt-2 text-sm text-red-700">
                 <p>{error}</p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {syncLogs.length > 0 && (
+        <div class="bg-gray-50 border border-gray-200 rounded-md p-4 mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-gray-900">Sync Logs</h3>
+            <span class="text-xs text-gray-500">{syncLogs.length} entries</span>
+          </div>
+          <div class="bg-white border border-gray-200 rounded-md p-3 max-h-64 overflow-y-auto">
+            <div class="space-y-1 text-sm font-mono">
+              {syncLogs.map((log, index) => (
+                <div class="flex items-start">
+                  <span class="text-gray-400 mr-2 text-xs">{String(index + 1).padStart(2, '0')}</span>
+                  <span class={log.includes('❌') ? 'text-red-600' : log.includes('✅') ? 'text-green-600' : log.includes('🚀') ? 'text-blue-600' : 'text-gray-700'}>
+                    {log}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
